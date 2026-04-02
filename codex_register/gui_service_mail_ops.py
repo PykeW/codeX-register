@@ -413,7 +413,8 @@ def _cf_list_zones_internal(service) -> list[dict[str, Any]]:
         if not zid or not zname or zid in seen:
             continue
         seen.add(zid)
-        account: dict = it.get("account") if isinstance(it.get("account"), dict) else {}
+        _raw_acc = it.get("account")
+        account: dict[str, Any] = _raw_acc if isinstance(_raw_acc, dict) else {}
         out.append(
             {
                 "id": zid,

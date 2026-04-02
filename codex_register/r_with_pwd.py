@@ -2745,6 +2745,7 @@ def _build_sentinel_for_session(
         if _stop_requested():
             return None
         try:
+            _imp: Any = imp
             sen_resp = requests.post(
                 "https://sentinel.openai.com/backend-api/sentinel/req",
                 headers={
@@ -2755,7 +2756,7 @@ def _build_sentinel_for_session(
                 },
                 data=payload,
                 proxies=proxies,
-                impersonate=imp,
+                impersonate=_imp,
                 verify=_ssl_verify(),
                 timeout=15,
             )
@@ -2810,7 +2811,8 @@ def _login_via_password_and_finish_oauth(
 
     oauth = generate_oauth_url()
     fp = _choose_browser_fingerprint()
-    s = requests.Session(proxies=proxies, impersonate=str(fp.get("impersonate") or "safari"))
+    _browser: Any = str(fp.get("impersonate") or "safari")
+    s = requests.Session(proxies=proxies, impersonate=_browser)
     _apply_session_fingerprint(s, fp)
     _info(f"登录指纹: {fp.get('label', '-')}")
 

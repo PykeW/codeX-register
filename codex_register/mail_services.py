@@ -236,7 +236,7 @@ class MailFreeService(MailServiceBase):
                 impersonate="safari",
                 verify=self.verify_ssl,
                 timeout=timeout,
-            )
+            )  # type: ignore[arg-type]
         except Exception as e:
             raise MailServiceError(f"{method} {path} 请求失败: {e}") from e
 
@@ -784,11 +784,13 @@ class MailFreeService(MailServiceBase):
         if not isinstance(payload, dict):
             raise MailServiceError("邮件详情返回格式异常")
 
-        body = payload
-        if isinstance(payload.get("data"), dict):
-            body = payload.get("data")
-        if isinstance(body.get("email"), dict):
-            body = body.get("email")
+        body: dict[str, Any] = payload if isinstance(payload, dict) else {}
+        _data = body.get("data")
+        if isinstance(_data, dict):
+            body = _data
+        _email = body.get("email")
+        if isinstance(_email, dict):
+            body = _email
 
         sender = self._sender_text(body.get("from") or body.get("sender"))
         subject = str(body.get("subject") or body.get("title") or "(无主题)")
@@ -974,7 +976,7 @@ class LuckyousOpenApiService(MailServiceBase):
                 impersonate="safari",
                 verify=self.verify_ssl,
                 timeout=timeout,
-            )
+            )  # type: ignore[arg-type]
         except Exception as e:
             raise MailServiceError(f"{method} {path} 请求失败: {e}") from e
 
@@ -1939,7 +1941,7 @@ class GmailImapService(MailServiceBase):
                     if not seq:
                         continue
                     try:
-                        typ, msg_data = imap_conn.fetch(raw_seq, "(UID RFC822)")
+                        typ, msg_data = imap_conn.fetch(raw_seq, "(UID RFC822)")  # type: ignore[arg-type]
                     except Exception:
                         continue
                     if typ != "OK":
@@ -2317,7 +2319,7 @@ class MicrosoftGraphService(MailServiceBase):
                 impersonate="chrome",
                 verify=self.verify_ssl,
                 timeout=25,
-            )
+            )  # type: ignore[arg-type]
         except Exception as e:
             raise MailServiceError(f"Graph 请求失败: {e}") from e
         if resp.status_code == 401:
@@ -2335,7 +2337,7 @@ class MicrosoftGraphService(MailServiceBase):
                 impersonate="chrome",
                 verify=self.verify_ssl,
                 timeout=25,
-            )
+            )  # type: ignore[arg-type]
         return resp
 
     @staticmethod
@@ -2377,7 +2379,7 @@ class MicrosoftGraphService(MailServiceBase):
         access_token = self._refresh_access_token(acc, proxies=None)
         mail = imaplib.IMAP4_SSL("outlook.live.com")
         auth_str = self._xoauth2_auth_string(str(acc.get("email") or ""), access_token)
-        mail.authenticate("XOAUTH2", lambda _: auth_str)
+        mail.authenticate("XOAUTH2", lambda _: auth_str.encode("utf-8"))
         return mail
 
     @staticmethod
@@ -2479,7 +2481,7 @@ class MicrosoftGraphService(MailServiceBase):
                             uid = raw_uid.decode("utf-8", errors="ignore")
                             if not uid:
                                 continue
-                            typ, msg_data = imap_conn.fetch(raw_uid, "(RFC822)")
+                            typ, msg_data = imap_conn.fetch(raw_uid, "(RFC822)")  # type: ignore[arg-type]
                             if typ != "OK":
                                 continue
                             raw_bytes = b""
@@ -2582,7 +2584,7 @@ class MicrosoftGraphService(MailServiceBase):
                     typ, _ = imap_conn.select(folder)
                     if typ != "OK":
                         continue
-                    typ, msg_data = imap_conn.fetch(uid.encode("utf-8"), "(RFC822)")
+                    typ, msg_data = imap_conn.fetch(uid.encode("utf-8"), "(RFC822)")  # type: ignore[arg-type]
                     if typ != "OK":
                         continue
                     raw_bytes = b""
@@ -2695,7 +2697,7 @@ class MicrosoftGraphService(MailServiceBase):
                     typ, _ = imap_conn.select(folder)
                     if typ != "OK":
                         continue
-                    typ, _ = imap_conn.store(uid.encode("utf-8"), "+FLAGS", "\\Deleted")
+                    typ, _ = imap_conn.store(uid.encode("utf-8"), "+FLAGS", "\\Deleted")  # type: ignore[arg-type]
                     if typ != "OK":
                         continue
                     imap_conn.expunge()
