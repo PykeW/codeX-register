@@ -1,15 +1,39 @@
-*.json
-*.log
-.idea
-.cursor
-__pycache__/
-*.txt
-*.db
+# Local config / secrets
 gui_config.json
-!gui_config.example.json
+.env
+.env.*
+!.env.example
+graph_accounts.txt
+
+# Runtime data / exports
+accounts.txt
+accounts_*.json
+local_accounts.db
+*.log
+*.db
+
+# Build artifacts
 build/
 dist/
 release-artifacts/
+release_notes.md
 *.spec
-Pipfile.lock
+
+# Python cache / tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+htmlcov/
+.coverage
+.python-version
+
+# Editors / local tooling
+.idea/
+.cursor/
+.snow/
 Pipfile
+Pipfile.lock
