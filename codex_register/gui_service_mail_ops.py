@@ -236,7 +236,7 @@ def _cf_has_error_code(payload: Any, code: int) -> bool:
         if not isinstance(it, dict):
             continue
         try:
-            c = int(it.get("code"))
+            c = int(it.get("code") or 0)
         except Exception:
             continue
         if c == int(code):
@@ -343,12 +343,12 @@ def _cf_request(
     verify_ssl = bool(service.cfg.get("openai_ssl_verify", True))
     try:
         resp = requests.request(
-            method=method,
+            method=method,  # type: ignore[arg-type]
             url=url,
             params=params,
             json=json_body,
             headers=_cf_headers(service),
-            proxies=proxy,
+            proxies=proxy,  # type: ignore[arg-type]
             impersonate="safari",
             verify=verify_ssl,
             timeout=timeout,
@@ -413,7 +413,7 @@ def _cf_list_zones_internal(service) -> list[dict[str, Any]]:
         if not zid or not zname or zid in seen:
             continue
         seen.add(zid)
-        account = it.get("account") if isinstance(it.get("account"), dict) else {}
+        account: dict = it.get("account") if isinstance(it.get("account"), dict) else {}
         out.append(
             {
                 "id": zid,
@@ -755,7 +755,7 @@ def mail_cf_worker_set_mail_domain(service, payload: dict[str, Any]) -> dict[str
 
     proxy = mail_proxy(service)
     try:
-        res = client.add_domain(mail_domain, proxies=proxy)
+        res = client.add_domain(mail_domain, proxies=proxy)  # type: ignore[attr-defined]
     except MailServiceError as e:
         msg = str(e)
         low = msg.lower()
@@ -947,8 +947,6 @@ def mail_overview(service, limit: Any = 120, offset: Any = 0) -> dict[str, Any]:
                 raise
         else:
             raise
-    except MailServiceError as e:
-        raise RuntimeError(str(e)) from e
 
     rows: list[dict[str, Any]] = []
     for idx, it in enumerate(mailboxes):
