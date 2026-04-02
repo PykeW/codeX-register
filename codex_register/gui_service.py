@@ -2300,7 +2300,7 @@ class RegisterService:
 
             stats_fn = getattr(r_with_pwd, "get_hero_sms_runtime_stats", None)
             if callable(stats_fn):
-                stats = stats_fn() or {}
+                stats: dict = stats_fn() or {}
                 data["spent_usd"] = round(
                     max(0.0, float(stats.get("spent_total_usd") or 0.0)),
                     4,
@@ -2316,9 +2316,10 @@ class RegisterService:
                 proxy_map = {"http": proxy, "https": proxy} if proxy else None
                 bal_fn = getattr(r_with_pwd, "hero_sms_get_balance", None)
                 if callable(bal_fn):
-                    bal, err = bal_fn(proxy_map)
-                    if float(bal) >= 0:
-                        data["balance_usd"] = round(float(bal), 4)
+                    bal_raw, err = bal_fn(proxy_map)
+                    bal = float(bal_raw if bal_raw is not None else -1)
+                    if bal >= 0:
+                        data["balance_usd"] = round(bal, 4)
                         data["balance_error"] = ""
                     else:
                         data["balance_error"] = str(err or "余额获取失败")[:220]
@@ -2392,10 +2393,14 @@ class RegisterService:
 
             if callable(resolve_country_fn):
                 try:
-                    out["country_resolved"] = int(resolve_country_fn(proxy_map))
+                    _country_val = resolve_country_fn(proxy_map)
+                    out["country_resolved"] = int(_country_val if _country_val is not None else -1)
                 except Exception:
                     pass
 
+            ok_c: Any
+            text_c: Any
+            countries_data: Any
             ok_c, text_c, countries_data = req_fn(
                 "getCountries",
                 proxies=proxy_map,
@@ -2410,6 +2415,9 @@ class RegisterService:
             params: dict[str, Any] = {}
             if service_resolved:
                 params["service"] = service_resolved
+            ok_p: Any
+            text_p: Any
+            prices_data: Any
             ok_p, text_p, prices_data = req_fn(
                 "getPrices",
                 proxies=proxy_map,
@@ -2464,7 +2472,7 @@ class RegisterService:
             filtered_out = 0
             for row in countries_rows:
                 try:
-                    cid = int(row.get("id"))
+                    cid = int(row.get("id") or 0)
                 except Exception:
                     continue
                 cid_s = str(cid)
@@ -4778,7 +4786,7 @@ class RegisterService:
                 continue
             gid = it.get("id")
             try:
-                gid_int = int(gid)
+                gid_int = int(gid or 0)
             except Exception:
                 continue
             name = str(it.get("name") or f"分组#{gid_int}").strip() or f"分组#{gid_int}"

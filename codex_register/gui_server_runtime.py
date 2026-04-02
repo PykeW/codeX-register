@@ -147,269 +147,23 @@ def _make_api_handler(service, index_html: str):
             path = parsed.path
 
             try:
-                if path == "/api/config":
-                    payload = self._read_json_body()
-                    self._ok(service.update_config(payload, emit_log=True))
+                if self._handle_post_config(path):
                     return
-
-                if path == "/api/start":
-                    payload = self._read_json_body()
-                    self._ok(service.start(payload))
+                if self._handle_post_start(path):
                     return
-
-                if path == "/api/stop":
-                    self._ok(service.stop())
+                if self._handle_post_stop(path):
                     return
-
-                if path == "/api/logs/clear":
-                    service.clear_logs()
-                    self._ok({"done": True})
+                if self._handle_post_logs_clear(path):
                     return
-
-                if path == "/api/run-stats/clear":
-                    self._ok(service.clear_run_stats())
+                if self._handle_post_run_stats_clear(path):
                     return
-
-                if path == "/api/data/json/delete":
-                    payload = self._read_json_body()
-                    paths = payload.get("paths") or []
-                    if not isinstance(paths, list):
-                        raise ValueError("paths 必须为数组")
-                    self._ok(service.delete_json_files(paths))
+                if self._handle_post_data(path):
                     return
-
-                if path == "/api/data/accounts/delete":
-                    payload = self._read_json_body()
-                    emails = payload.get("emails") or []
-                    if not isinstance(emails, list):
-                        raise ValueError("emails 必须为数组")
-                    self._ok(service.delete_local_accounts(emails))
+                if self._handle_post_remote(path):
                     return
-
-                if path == "/api/data/json/note":
-                    payload = self._read_json_body()
-                    p = str(payload.get("path") or "")
-                    note = str(payload.get("note") or "")
-                    self._ok(service.save_json_file_note(p, note))
+                if self._handle_post_flclash(path):
                     return
-
-                if path == "/api/data/sync":
-                    payload = self._read_json_body()
-                    emails = payload.get("emails") or []
-                    provider = str(payload.get("provider") or "").strip()
-                    if not isinstance(emails, list):
-                        raise ValueError("emails 必须为数组")
-                    self._ok(service.sync_selected_accounts(emails, provider))
-                    return
-
-                if path == "/api/data/cpa/test":
-                    payload = self._read_json_body()
-                    emails = payload.get("emails") or []
-                    if not isinstance(emails, list):
-                        raise ValueError("emails 必须为数组")
-                    self._ok(service.test_local_accounts_via_cpa(emails))
-                    return
-
-                if path == "/api/data/sub2api/export":
-                    payload = self._read_json_body()
-                    emails = payload.get("emails") or []
-                    file_count = payload.get("file_count") or 1
-                    accounts_per_file = payload.get("accounts_per_file") or 0
-                    if not isinstance(emails, list):
-                        raise ValueError("emails 必须为数组")
-                    self._ok(
-                        service.export_sub2api_accounts(
-                            emails,
-                            int(file_count),
-                            int(accounts_per_file),
-                        )
-                    )
-                    return
-
-                if path == "/api/data/codex/export":
-                    payload = self._read_json_body()
-                    emails = payload.get("emails") or []
-                    if not isinstance(emails, list):
-                        raise ValueError("emails 必须为数组")
-                    self._ok(service.export_codex_accounts(emails))
-                    return
-
-                if path == "/api/remote/fetch-all":
-                    payload = self._read_json_body()
-                    search = str(payload.get("search") or "")
-                    self._ok(service.fetch_remote_all_pages(search=search))
-                    return
-
-                if path == "/api/remote/test-batch":
-                    payload = self._read_json_body()
-                    ids = payload.get("ids") or []
-                    if not isinstance(ids, list):
-                        raise ValueError("ids 必须为数组")
-                    self._ok(service.batch_test_remote_accounts(ids))
-                    return
-
-                if path == "/api/remote/refresh-batch":
-                    payload = self._read_json_body()
-                    ids = payload.get("ids") or []
-                    if not isinstance(ids, list):
-                        raise ValueError("ids 必须为数组")
-                    self._ok(service.refresh_remote_tokens(ids))
-                    return
-
-                if path == "/api/remote/revive-batch":
-                    payload = self._read_json_body()
-                    ids = payload.get("ids") or []
-                    if not isinstance(ids, list):
-                        raise ValueError("ids 必须为数组")
-                    self._ok(service.revive_remote_tokens(ids))
-                    return
-
-                if path == "/api/remote/delete-batch":
-                    payload = self._read_json_body()
-                    ids = payload.get("ids") or []
-                    delete_local = bool(payload.get("delete_local"))
-                    if not isinstance(ids, list):
-                        raise ValueError("ids 必须为数组")
-                    self._ok(service.delete_remote_accounts(ids, delete_local=delete_local))
-                    return
-
-                if path == "/api/remote/groups":
-                    self._ok(service.remote_list_groups())
-                    return
-
-                if path == "/api/remote/groups/bulk-update":
-                    payload = self._read_json_body()
-                    account_ids = payload.get("account_ids") or []
-                    group_ids = payload.get("group_ids") or []
-                    if not isinstance(account_ids, list):
-                        raise ValueError("account_ids 必须为数组")
-                    if not isinstance(group_ids, list):
-                        raise ValueError("group_ids 必须为数组")
-                    self._ok(service.remote_bulk_update_groups(account_ids, group_ids))
-                    return
-
-                if path == "/api/remote/access-token":
-                    payload = self._read_json_body()
-                    aid = payload.get("id")
-                    file_name = payload.get("file_name")
-                    self._ok(service.remote_access_token(aid, file_name))
-                    return
-
-                if path == "/api/flclash/probe":
-                    payload = self._read_json_body()
-                    self._ok(
-                        service.probe_flclash_nodes(
-                            rounds=payload.get("rounds", 1),
-                            per_round_limit=payload.get("per_round_limit", 0),
-                        )
-                    )
-                    return
-
-                if path == "/api/mail/overview":
-                    payload = self._read_json_body()
-                    self._ok(
-                        service.mail_overview(
-                            limit=payload.get("limit", 120),
-                            offset=payload.get("offset", 0),
-                        )
-                    )
-                    return
-
-                if path == "/api/mail/cf/zones":
-                    self._ok(service.mail_cf_zones())
-                    return
-
-                if path == "/api/mail/cf/dns/list":
-                    payload = self._read_json_body()
-                    zone_id = str(payload.get("zone_id") or "")
-                    self._ok(service.mail_cf_dns_list(zone_id))
-                    return
-
-                if path == "/api/mail/cf/dns/create":
-                    payload = self._read_json_body()
-                    self._ok(service.mail_cf_dns_create_batch(payload))
-                    return
-
-                if path == "/api/mail/cf/dns/update":
-                    payload = self._read_json_body()
-                    self._ok(service.mail_cf_dns_update(payload))
-                    return
-
-                if path == "/api/mail/cf/dns/delete":
-                    payload = self._read_json_body()
-                    zone_id = str(payload.get("zone_id") or "")
-                    record_ids = payload.get("record_ids") or []
-                    if not isinstance(record_ids, list):
-                        raise ValueError("record_ids 必须为数组")
-                    self._ok(service.mail_cf_dns_delete_batch(zone_id, record_ids))
-                    return
-
-                if path == "/api/mail/cf/worker/set-mail-domain":
-                    payload = self._read_json_body()
-                    self._ok(service.mail_cf_worker_set_mail_domain(payload))
-                    return
-
-                if path == "/api/mail/generate":
-                    self._ok(service.mail_generate_mailbox())
-                    return
-
-                if path == "/api/mail/emails":
-                    payload = self._read_json_body()
-                    mailbox = str(payload.get("mailbox") or "")
-                    self._ok(service.mail_list_emails(mailbox))
-                    return
-
-                if path == "/api/mail/email/detail":
-                    payload = self._read_json_body()
-                    mail_id = str(payload.get("id") or "")
-                    self._ok(service.mail_get_email_detail(mail_id))
-                    return
-
-                if path == "/api/mail/email/delete":
-                    payload = self._read_json_body()
-                    mail_id = str(payload.get("id") or "")
-                    self._ok(service.mail_delete_email(mail_id))
-                    return
-
-                if path == "/api/mail/emails/delete":
-                    payload = self._read_json_body()
-                    ids = payload.get("ids") or []
-                    if not isinstance(ids, list):
-                        raise ValueError("ids 必须为数组")
-                    self._ok(service.mail_delete_emails(ids))
-                    return
-
-                if path == "/api/mail/emails/clear":
-                    payload = self._read_json_body()
-                    mailbox = str(payload.get("mailbox") or "")
-                    self._ok(service.mail_clear_emails(mailbox))
-                    return
-
-                if path == "/api/mail/graph-account-file/import":
-                    payload = self._read_json_body()
-                    filename = str(payload.get("filename") or "")
-                    content = str(payload.get("content") or "")
-                    self._ok(service.mail_import_graph_account_file(filename, content))
-                    return
-
-                if path == "/api/mail/graph-account-file/delete":
-                    payload = self._read_json_body()
-                    filename = str(payload.get("filename") or "")
-                    self._ok(service.mail_delete_graph_account_file(filename))
-                    return
-
-                if path == "/api/mail/mailbox/delete":
-                    payload = self._read_json_body()
-                    address = str(payload.get("address") or "")
-                    self._ok(service.mail_delete_mailbox(address))
-                    return
-
-                if path == "/api/mail/mailboxes/delete":
-                    payload = self._read_json_body()
-                    addresses = payload.get("addresses") or []
-                    if not isinstance(addresses, list):
-                        raise ValueError("addresses 必须为数组")
-                    self._ok(service.mail_delete_mailboxes(addresses))
+                if self._handle_post_mail(path):
                     return
 
                 self._err("未找到接口", HTTPStatus.NOT_FOUND)
@@ -419,6 +173,292 @@ def _make_api_handler(service, index_html: str):
                 self._err(str(e), HTTPStatus.CONFLICT)
             except Exception as e:
                 self._err(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        def _handle_post_config(self, path: str) -> bool:
+            if path != "/api/config":
+                return False
+            payload = self._read_json_body()
+            self._ok(service.update_config(payload, emit_log=True))
+            return True
+
+        def _handle_post_start(self, path: str) -> bool:
+            if path != "/api/start":
+                return False
+            payload = self._read_json_body()
+            self._ok(service.start(payload))
+            return True
+
+        def _handle_post_stop(self, path: str) -> bool:
+            if path != "/api/stop":
+                return False
+            self._ok(service.stop())
+            return True
+
+        def _handle_post_logs_clear(self, path: str) -> bool:
+            if path != "/api/logs/clear":
+                return False
+            service.clear_logs()
+            self._ok({"done": True})
+            return True
+
+        def _handle_post_run_stats_clear(self, path: str) -> bool:
+            if path != "/api/run-stats/clear":
+                return False
+            self._ok(service.clear_run_stats())
+            return True
+
+        def _handle_post_data(self, path: str) -> bool:
+            if path == "/api/data/json/delete":
+                payload = self._read_json_body()
+                paths = payload.get("paths") or []
+                if not isinstance(paths, list):
+                    raise ValueError("paths 必须为数组")
+                self._ok(service.delete_json_files(paths))
+                return True
+
+            if path == "/api/data/accounts/delete":
+                payload = self._read_json_body()
+                emails = payload.get("emails") or []
+                if not isinstance(emails, list):
+                    raise ValueError("emails 必须为数组")
+                self._ok(service.delete_local_accounts(emails))
+                return True
+
+            if path == "/api/data/json/note":
+                payload = self._read_json_body()
+                p = str(payload.get("path") or "")
+                note = str(payload.get("note") or "")
+                self._ok(service.save_json_file_note(p, note))
+                return True
+
+            if path == "/api/data/sync":
+                payload = self._read_json_body()
+                emails = payload.get("emails") or []
+                provider = str(payload.get("provider") or "").strip()
+                if not isinstance(emails, list):
+                    raise ValueError("emails 必须为数组")
+                self._ok(service.sync_selected_accounts(emails, provider))
+                return True
+
+            if path == "/api/data/cpa/test":
+                payload = self._read_json_body()
+                emails = payload.get("emails") or []
+                if not isinstance(emails, list):
+                    raise ValueError("emails 必须为数组")
+                self._ok(service.test_local_accounts_via_cpa(emails))
+                return True
+
+            if path == "/api/data/sub2api/export":
+                payload = self._read_json_body()
+                emails = payload.get("emails") or []
+                file_count = payload.get("file_count") or 1
+                accounts_per_file = payload.get("accounts_per_file") or 0
+                if not isinstance(emails, list):
+                    raise ValueError("emails 必须为数组")
+                self._ok(
+                    service.export_sub2api_accounts(
+                        emails,
+                        int(file_count),
+                        int(accounts_per_file),
+                    )
+                )
+                return True
+
+            if path == "/api/data/codex/export":
+                payload = self._read_json_body()
+                emails = payload.get("emails") or []
+                if not isinstance(emails, list):
+                    raise ValueError("emails 必须为数组")
+                self._ok(service.export_codex_accounts(emails))
+                return True
+
+            return False
+
+        def _handle_post_remote(self, path: str) -> bool:
+            if path == "/api/remote/fetch-all":
+                payload = self._read_json_body()
+                search = str(payload.get("search") or "")
+                self._ok(service.fetch_remote_all_pages(search=search))
+                return True
+
+            if path == "/api/remote/test-batch":
+                payload = self._read_json_body()
+                ids = payload.get("ids") or []
+                if not isinstance(ids, list):
+                    raise ValueError("ids 必须为数组")
+                self._ok(service.batch_test_remote_accounts(ids))
+                return True
+
+            if path == "/api/remote/refresh-batch":
+                payload = self._read_json_body()
+                ids = payload.get("ids") or []
+                if not isinstance(ids, list):
+                    raise ValueError("ids 必须为数组")
+                self._ok(service.refresh_remote_tokens(ids))
+                return True
+
+            if path == "/api/remote/revive-batch":
+                payload = self._read_json_body()
+                ids = payload.get("ids") or []
+                if not isinstance(ids, list):
+                    raise ValueError("ids 必须为数组")
+                self._ok(service.revive_remote_tokens(ids))
+                return True
+
+            if path == "/api/remote/delete-batch":
+                payload = self._read_json_body()
+                ids = payload.get("ids") or []
+                delete_local = bool(payload.get("delete_local"))
+                if not isinstance(ids, list):
+                    raise ValueError("ids 必须为数组")
+                self._ok(service.delete_remote_accounts(ids, delete_local=delete_local))
+                return True
+
+            if path == "/api/remote/groups":
+                self._ok(service.remote_list_groups())
+                return True
+
+            if path == "/api/remote/groups/bulk-update":
+                payload = self._read_json_body()
+                account_ids = payload.get("account_ids") or []
+                group_ids = payload.get("group_ids") or []
+                if not isinstance(account_ids, list):
+                    raise ValueError("account_ids 必须为数组")
+                if not isinstance(group_ids, list):
+                    raise ValueError("group_ids 必须为数组")
+                self._ok(service.remote_bulk_update_groups(account_ids, group_ids))
+                return True
+
+            if path == "/api/remote/access-token":
+                payload = self._read_json_body()
+                aid = payload.get("id")
+                file_name = payload.get("file_name")
+                self._ok(service.remote_access_token(aid, file_name))
+                return True
+
+            return False
+
+        def _handle_post_flclash(self, path: str) -> bool:
+            if path != "/api/flclash/probe":
+                return False
+            payload = self._read_json_body()
+            self._ok(
+                service.probe_flclash_nodes(
+                    rounds=payload.get("rounds", 1),
+                    per_round_limit=payload.get("per_round_limit", 0),
+                )
+            )
+            return True
+
+        def _handle_post_mail(self, path: str) -> bool:
+            if path == "/api/mail/overview":
+                payload = self._read_json_body()
+                self._ok(
+                    service.mail_overview(
+                        limit=payload.get("limit", 120),
+                        offset=payload.get("offset", 0),
+                    )
+                )
+                return True
+
+            if path == "/api/mail/cf/zones":
+                self._ok(service.mail_cf_zones())
+                return True
+
+            if path == "/api/mail/cf/dns/list":
+                payload = self._read_json_body()
+                zone_id = str(payload.get("zone_id") or "")
+                self._ok(service.mail_cf_dns_list(zone_id))
+                return True
+
+            if path == "/api/mail/cf/dns/create":
+                payload = self._read_json_body()
+                self._ok(service.mail_cf_dns_create_batch(payload))
+                return True
+
+            if path == "/api/mail/cf/dns/update":
+                payload = self._read_json_body()
+                self._ok(service.mail_cf_dns_update(payload))
+                return True
+
+            if path == "/api/mail/cf/dns/delete":
+                payload = self._read_json_body()
+                zone_id = str(payload.get("zone_id") or "")
+                record_ids = payload.get("record_ids") or []
+                if not isinstance(record_ids, list):
+                    raise ValueError("record_ids 必须为数组")
+                self._ok(service.mail_cf_dns_delete_batch(zone_id, record_ids))
+                return True
+
+            if path == "/api/mail/cf/worker/set-mail-domain":
+                payload = self._read_json_body()
+                self._ok(service.mail_cf_worker_set_mail_domain(payload))
+                return True
+
+            if path == "/api/mail/generate":
+                self._ok(service.mail_generate_mailbox())
+                return True
+
+            if path == "/api/mail/emails":
+                payload = self._read_json_body()
+                mailbox = str(payload.get("mailbox") or "")
+                self._ok(service.mail_list_emails(mailbox))
+                return True
+
+            if path == "/api/mail/email/detail":
+                payload = self._read_json_body()
+                mail_id = str(payload.get("id") or "")
+                self._ok(service.mail_get_email_detail(mail_id))
+                return True
+
+            if path == "/api/mail/email/delete":
+                payload = self._read_json_body()
+                mail_id = str(payload.get("id") or "")
+                self._ok(service.mail_delete_email(mail_id))
+                return True
+
+            if path == "/api/mail/emails/delete":
+                payload = self._read_json_body()
+                ids = payload.get("ids") or []
+                if not isinstance(ids, list):
+                    raise ValueError("ids 必须为数组")
+                self._ok(service.mail_delete_emails(ids))
+                return True
+
+            if path == "/api/mail/emails/clear":
+                payload = self._read_json_body()
+                mailbox = str(payload.get("mailbox") or "")
+                self._ok(service.mail_clear_emails(mailbox))
+                return True
+
+            if path == "/api/mail/graph-account-file/import":
+                payload = self._read_json_body()
+                filename = str(payload.get("filename") or "")
+                content = str(payload.get("content") or "")
+                self._ok(service.mail_import_graph_account_file(filename, content))
+                return True
+
+            if path == "/api/mail/graph-account-file/delete":
+                payload = self._read_json_body()
+                filename = str(payload.get("filename") or "")
+                self._ok(service.mail_delete_graph_account_file(filename))
+                return True
+
+            if path == "/api/mail/mailbox/delete":
+                payload = self._read_json_body()
+                address = str(payload.get("address") or "")
+                self._ok(service.mail_delete_mailbox(address))
+                return True
+
+            if path == "/api/mail/mailboxes/delete":
+                payload = self._read_json_body()
+                addresses = payload.get("addresses") or []
+                if not isinstance(addresses, list):
+                    raise ValueError("addresses 必须为数组")
+                self._ok(service.mail_delete_mailboxes(addresses))
+                return True
+
+            return False
 
     return ApiHandler
 
