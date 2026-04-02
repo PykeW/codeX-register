@@ -624,7 +624,7 @@ def _hero_sms_prices_by_service(service_code: str, proxies: Any) -> list[dict[st
 
     rows.sort(
         key=lambda x: (
-            float(x.get("cost")) if float(x.get("cost") or -1.0) >= 0 else 999999.0,
+            float(x.get("cost") or 0) if float(x.get("cost") or -1.0) >= 0 else 999999.0,
             -int(x.get("count") or 0),
             int(x.get("country") or 0),
         )
@@ -863,7 +863,7 @@ def hero_sms_get_balance(proxies: Any = None) -> tuple[float, str]:
                 if isinstance(val, dict):
                     num = float(val.get("balance") or val.get("amount") or -1)
                 else:
-                    num = float(val)
+                    num = float(val or -1)
             except Exception:
                 continue
             if num >= 0:
@@ -889,11 +889,15 @@ def _hero_sms_resolve_service_code(proxies: Any) -> str:
         timeout=30,
     )
     services: List[Dict[str, Any]] = []
+    services: List[Dict[str, Any]] = []
     if ok and isinstance(data, dict):
-        if isinstance(data.get("services"), list):
-            services = [x for x in data.get("services") if isinstance(x, dict)]
-        elif isinstance(data.get("data"), list):
-            services = [x for x in data.get("data") if isinstance(x, dict)]
+        _svcs = data.get("services")
+        if isinstance(_svcs, list):
+            services = [x for x in _svcs if isinstance(x, dict)]
+        else:
+            _data_list = data.get("data")
+            if isinstance(_data_list, list):
+                services = [x for x in _data_list if isinstance(x, dict)]
 
     selected = ""
     for item in services:
@@ -947,7 +951,7 @@ def _hero_sms_resolve_country_id(proxies: Any) -> int:
     for item in countries:
         cid = item.get("id")
         try:
-            cid_i = int(cid)
+            cid_i = int(cid or 0)
         except Exception:
             continue
         names = [
@@ -1162,7 +1166,8 @@ def _hero_sms_poll_code(activation_id: str, proxies: Any) -> str:
             else:
                 code = ""
             if not code and isinstance(data, dict):
-                sms_obj = data.get("sms") if isinstance(data.get("sms"), dict) else {}
+                _sms = data.get("sms")
+                sms_obj: dict[str, Any] = _sms if isinstance(_sms, dict) else {}
                 code = str(sms_obj.get("code") or data.get("code") or "").strip()
             if code:
                 return code
@@ -2671,7 +2676,9 @@ def _session_get_with_tls_retry(
             )
             if _sleep_interruptible(delay):
                 raise UserStoppedError("stopped_by_user")
-    raise last_err  # pragma: no cover
+    if last_err is not None:
+        raise last_err
+    raise RuntimeError("Unexpected error")  # pragma: no cover
 
 
 def _is_transient_net_error(exc: BaseException) -> bool:
@@ -2755,7 +2762,7 @@ def _build_sentinel_for_session(
                 },
                 data=payload,
                 proxies=proxies,
-                impersonate=imp,
+                impersonate=_imp,
                 verify=_ssl_verify(),
                 timeout=15,
             )
@@ -2810,7 +2817,8 @@ def _login_via_password_and_finish_oauth(
 
     oauth = generate_oauth_url()
     fp = _choose_browser_fingerprint()
-    s = requests.Session(proxies=proxies, impersonate=str(fp.get("impersonate") or "safari"))
+    _browser: Any = str(fp.get("impersonate") or "safari")
+    s = requests.Session(proxies=proxies, impersonate=_browser)
     _apply_session_fingerprint(s, fp)
     _info(f"登录指纹: {fp.get('label', '-')}")
 
@@ -3216,7 +3224,8 @@ def run(proxy: Optional[str]):
     _raise_if_stopped()
 
     fp = _choose_browser_fingerprint()
-    s = requests.Session(proxies=proxies, impersonate=str(fp.get("impersonate") or "safari"))
+    _browser: Any = str(fp.get("impersonate") or "safari")
+    s = requests.Session(proxies=proxies, impersonate=_browser)
     _apply_session_fingerprint(s, fp)
     _info(
         "浏览器指纹: "
@@ -3225,43 +3234,96 @@ def run(proxy: Optional[str]):
         f" · lang={fp.get('accept_language', '-')}"
     )
 
-    def _runtime_meta() -> Dict[str, Any]:
-        out: Dict[str, Any] = {}
-        try:
-            stats = get_hero_sms_runtime_stats()
-            spent = float(stats.get("spent_total_usd") or 0.0)
-            bal_last = float(stats.get("balance_last_usd") or -1.0)
-            out["sms_spent_usd"] = round(max(0.0, spent), 4)
-            if bal_last >= 0:
-                out["sms_balance_usd"] = round(bal_last, 4)
-            out["sms_min_balance_usd"] = round(_hero_sms_min_balance_limit(), 4)
-        except Exception:
-            pass
-        return out
+def _run_runtime_meta() -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    try:
+        stats = get_hero_sms_runtime_stats()
+        spent = float(stats.get("spent_total_usd") or 0.0)
+        bal_last = float(stats.get("balance_last_usd") or -1.0)
+        out["sms_spent_usd"] = round(max(0.0, spent), 4)
+        if bal_last >= 0:
+            out["sms_balance_usd"] = round(bal_last, 4)
+        out["sms_min_balance_usd"] = round(_hero_sms_min_balance_limit(), 4)
+    except Exception:
+        pass
+    return out
 
-    def _ok(account_obj: Dict[str, Any], password: str = ""):
-        meta = _runtime_meta()
-        if meta:
-            return account_obj, password, meta
-        return account_obj, password
 
-    def _fail(password: str = "", code: str = "", message: str = "", extra: Dict[str, Any] | None = None):
-        meta: Dict[str, Any] = _runtime_meta()
-        if code:
-            meta["error_code"] = str(code).strip().lower()
-        if message:
-            meta["error_message"] = str(message).strip()[:220]
-        if email_domain:
-            meta["email_domain"] = email_domain
-        if isinstance(extra, dict):
-            for k, v in extra.items():
-                if v is not None:
-                    meta[str(k)] = v
-        if meta:
-            return None, password, meta
-        return None, password
+def _run_ok(account_obj: Dict[str, Any], password: str = ""):
+    meta = _run_runtime_meta()
+    if meta:
+        return account_obj, password, meta
+    return account_obj, password
 
-    email_domain = ""
+
+def _run_fail(password: str = "", code: str = "", message: str = "", extra: Dict[str, Any] | None = None, email_domain: str = ""):
+    meta: Dict[str, Any] = _run_runtime_meta()
+    if code:
+        meta["error_code"] = str(code).strip().lower()
+    if message:
+        meta["error_message"] = str(message).strip()[:220]
+    if email_domain:
+        meta["email_domain"] = email_domain
+    if isinstance(extra, dict):
+        for k, v in extra.items():
+            if v is not None:
+                meta[str(k)] = v
+    if meta:
+        return None, password, meta
+    return None, password
+
+
+def _run_signup_authorize_continue_once(s: Any, url: str, signup_body: str, proxies: Any) -> tuple[Any, str, str]:
+    seed_resp = _session_get_with_tls_retry(
+        s,
+        url,
+        proxies=proxies,
+        allow_redirects=True,
+        timeout=25,
+    )
+    did = s.cookies.get("oai-did")
+    _info(f"Device ID: {did}")
+    sentinel = _build_sentinel_for_session(s, "authorize_continue", proxies)
+    if not sentinel:
+        raise RuntimeError("Sentinel token 获取失败")
+    seed_url = str(getattr(seed_resp, "url", "") or "").strip()
+    referer = (
+        seed_url
+        if seed_url.startswith("https://auth.openai.com")
+        else "https://auth.openai.com/create-account"
+    )
+    signup_resp_local = s.post(
+        "https://auth.openai.com/api/accounts/authorize/continue",
+        headers={
+            "referer": referer,
+            "accept": "application/json",
+            "content-type": "application/json",
+            "openai-sentinel-token": sentinel,
+        },
+        data=signup_body,
+        proxies=proxies,
+        verify=_ssl_verify(),
+        timeout=30,
+    )
+    return signup_resp_local, str(did or "").strip(), str(sentinel or "")
+
+
+def _run_phase_init(proxy: Optional[str]) -> tuple[Any, Any, Any, str, str, str, Any, str, Optional[tuple]]:
+    proxies: Any = None
+    if proxy:
+        proxies = {"http": proxy, "https": proxy}
+    _raise_if_stopped()
+
+    fp = _choose_browser_fingerprint()
+    _browser: Any = str(fp.get("impersonate") or "safari")
+    s = requests.Session(proxies=proxies, impersonate=_browser)
+    _apply_session_fingerprint(s, fp)
+    _info(
+        "浏览器指纹: "
+        f"{fp.get('label', '-')}"
+        f" · imp={fp.get('impersonate', '-')}"
+        f" · lang={fp.get('accept_language', '-')}"
+    )
 
     if not _skip_net_check():
         try:
@@ -3282,14 +3344,14 @@ def run(proxy: Optional[str]):
             raise
         except Exception as e:
             _err(f"网络/地区检测失败: {e}")
-            return _fail("", "net_check_failed", str(e))
+            return s, fp, proxies, "", "", "", None, "", _run_fail("", "net_check_failed", str(e))
 
     email, dev_token = get_email_and_token(proxies)
     if not email or not dev_token:
         mb_code, mb_msg = _consume_mailbox_init_error()
         if mb_code:
-            return _fail("", mb_code, mb_msg or "临时邮箱或会话获取失败")
-        return _fail("", "mailbox_init_failed", "临时邮箱或会话获取失败")
+            return s, fp, proxies, "", "", "", None, "", _run_fail("", mb_code, mb_msg or "临时邮箱或会话获取失败")
+        return s, fp, proxies, "", "", "", None, "", _run_fail("", "mailbox_init_failed", "临时邮箱或会话获取失败")
     _raise_if_stopped()
     email_domain = _email_domain(email)
     _info(f"临时邮箱: {email}")
@@ -3298,470 +3360,480 @@ def run(proxy: Optional[str]):
 
     oauth = generate_oauth_url()
     url = oauth.auth_url
+    return s, fp, proxies, email, dev_token, email_domain, oauth, url, None
 
-    try:
-        signup_body = f'{{"username":{{"value":"{email}","kind":"email"}},"screen_hint":"signup"}}'
 
-        def _signup_authorize_continue_once() -> tuple[Any, str, str]:
-            seed_resp = _session_get_with_tls_retry(
-                s,
-                url,
-                proxies=proxies,
-                allow_redirects=True,
-                timeout=25,
-            )
-            did = s.cookies.get("oai-did")
-            _info(f"Device ID: {did}")
-            sentinel = _build_sentinel_for_session(s, "authorize_continue", proxies)
-            if not sentinel:
-                raise RuntimeError("Sentinel token 获取失败")
-            seed_url = str(getattr(seed_resp, "url", "") or "").strip()
-            referer = (
-                seed_url
-                if seed_url.startswith("https://auth.openai.com")
-                else "https://auth.openai.com/create-account"
-            )
-            signup_resp_local = s.post(
-                "https://auth.openai.com/api/accounts/authorize/continue",
-                headers={
-                    "referer": referer,
-                    "accept": "application/json",
-                    "content-type": "application/json",
-                    "openai-sentinel-token": sentinel,
-                },
-                data=signup_body,
-                proxies=proxies,
-                verify=_ssl_verify(),
-                timeout=30,
-            )
-            return signup_resp_local, str(did or "").strip(), str(sentinel or "")
+def _run_phase_signup(s: Any, url: str, email: str, proxies: Any) -> tuple[str, str, bool, str, str, Optional[Any]]:
+    signup_body = f'{{"username":{{"value":"{email}","kind":"email"}},"screen_hint":"signup"}}'
 
-        signup_resp: Any = None
-        signup_status = 0
-        sentinel = ""
-        for auth_try in range(2):
-            signup_resp, _, sentinel = _signup_authorize_continue_once()
-            signup_status = int(getattr(signup_resp, "status_code", 0) or 0)
-            _info(f"注册表单 authorize/continue HTTP {signup_status}")
-            low = str(getattr(signup_resp, "text", "") or "").lower()
-            can_retry_invalid_step = (
-                auth_try == 0
-                and signup_status == 400
-                and (
-                    "invalid_auth_step" in low
-                    or "invalid authorization step" in low
-                )
-            )
-            if can_retry_invalid_step:
-                _warn("注册前置步骤无效，重建授权链后重试一次")
-                continue
-            break
-
-        if signup_status == 403:
-            _err("注册表单 403，请稍后重试")
-            return "retry_403", ""
-        if signup_status != 200:
-            _err(f"注册表单失败 HTTP {signup_status}: {signup_resp.text[:400]}")
-            provider = normalize_mail_provider(MAIL_SERVICE_PROVIDER)
-            low = str(signup_resp.text or "").lower()
-            if provider == "graph" and (
+    signup_resp: Any = None
+    signup_status = 0
+    sentinel = ""
+    for auth_try in range(2):
+        signup_resp, _, sentinel = _run_signup_authorize_continue_once(s, url, signup_body, proxies)
+        signup_status = int(getattr(signup_resp, "status_code", 0) or 0)
+        _info(f"注册表单 authorize/continue HTTP {signup_status}")
+        low = str(getattr(signup_resp, "text", "") or "").lower()
+        can_retry_invalid_step = (
+            auth_try == 0
+            and signup_status == 400
+            and (
                 "invalid_auth_step" in low
                 or "invalid authorization step" in low
-            ):
-                _warn("invalid_auth_step 可能为链路/风控抖动，当前账号暂不删除")
-            return _fail("", "auth_continue_failed", f"HTTP {signup_status}")
-
-        password = _generate_password()
-        register_body = json.dumps({"password": password, "username": email})
-        _info(f"已生成密码: {password[:4]}****")
-
-        pwd_resp = s.post(
-            "https://auth.openai.com/api/accounts/user/register",
-            headers={
-                "referer": "https://auth.openai.com/create-account/password",
-                "accept": "application/json",
-                "content-type": "application/json",
-                "openai-sentinel-token": sentinel,
-            },
-            data=register_body,
-            proxies=proxies,
-            verify=_ssl_verify(),
+            )
         )
-        _info(f"user/register HTTP {pwd_resp.status_code}")
-        if pwd_resp.status_code != 200:
-            _err(f"user/register 失败: {pwd_resp.text[:400]}")
-            provider = normalize_mail_provider(MAIL_SERVICE_PROVIDER)
-            fail_text = str(pwd_resp.text or "")
-            if (
-                provider == "graph"
-                and pwd_resp.status_code == 400
-                and "Failed to register username" in fail_text
-            ):
-                _mark_graph_bad_email(email, "疑似已使用/不可注册")
-            return _fail("", "register_password_failed", f"HTTP {pwd_resp.status_code}")
+        if can_retry_invalid_step:
+            _warn("注册前置步骤无效，重建授权链后重试一次")
+            continue
+        break
 
+    if signup_status == 403:
+        return "", "", False, "", "", ("retry_403", "")
+
+    if signup_status != 200:
+        _err(f"注册表单失败 HTTP {signup_status}: {signup_resp.text[:400]}")
+        provider = normalize_mail_provider(MAIL_SERVICE_PROVIDER)
+        low = str(signup_resp.text or "").lower()
+        if provider == "graph" and (
+            "invalid_auth_step" in low
+            or "invalid authorization step" in low
+        ):
+            _warn("invalid_auth_step 可能为链路/风控抖动，当前账号暂不删除")
+        return "", "", False, "", "", _run_fail("", "auth_continue_failed", f"HTTP {signup_status}")
+
+    password = _generate_password()
+    register_body = json.dumps({"password": password, "username": email})
+    _info(f"已生成密码: {password[:4]}****")
+
+    pwd_resp = s.post(
+        "https://auth.openai.com/api/accounts/user/register",
+        headers={
+            "referer": "https://auth.openai.com/create-account/password",
+            "accept": "application/json",
+            "content-type": "application/json",
+            "openai-sentinel-token": sentinel,
+        },
+        data=register_body,
+        proxies=proxies,
+        verify=_ssl_verify(),
+    )
+    _info(f"user/register HTTP {pwd_resp.status_code}")
+    if pwd_resp.status_code != 200:
+        _err(f"user/register 失败: {pwd_resp.text[:400]}")
+        provider = normalize_mail_provider(MAIL_SERVICE_PROVIDER)
+        fail_text = str(pwd_resp.text or "")
+        if (
+            provider == "graph"
+            and pwd_resp.status_code == 400
+            and "Failed to register username" in fail_text
+        ):
+            _mark_graph_bad_email(email, "疑似已使用/不可注册")
+        return "", "", False, "", "", _run_fail("", "register_password_failed", f"HTTP {pwd_resp.status_code}")
+
+    try:
+        register_json = pwd_resp.json()
+        register_continue = register_json.get("continue_url", "")
+        register_page = (register_json.get("page") or {}).get("type", "")
+        _info(f"注册下一步 page={register_page} url={register_continue[:120]}")
+    except Exception:
+        register_continue = ""
+        register_page = ""
+        _warn(f"注册响应非 JSON，原文: {pwd_resp.text[:300]}")
+
+    need_otp = (
+        "email-verification" in register_continue
+        or "verify" in register_continue
+        or "email-otp" in register_continue
+        or "otp" in register_continue
+    )
+    if not need_otp and register_page:
+        need_otp = "verification" in register_page or "otp" in register_page
+
+    if need_otp:
+        send_otp_url = register_continue or "https://auth.openai.com/api/accounts/email-otp/send"
+        _info(f"需要邮箱 OTP，发送接口: {send_otp_url}")
         try:
-            register_json = pwd_resp.json()
-            register_continue = register_json.get("continue_url", "")
-            register_page = (register_json.get("page") or {}).get("type", "")
-            _info(f"注册下一步 page={register_page} url={register_continue[:120]}")
-        except Exception:
-            register_continue = ""
-            register_page = ""
-            _warn(f"注册响应非 JSON，原文: {pwd_resp.text[:300]}")
-        need_otp = (
-            "email-verification" in register_continue
-            or "verify" in register_continue
-            or "email-otp" in register_continue
-            or "otp" in register_continue
-        )
-        if not need_otp and register_page:
-            need_otp = "verification" in register_page or "otp" in register_page
-
-        if need_otp:
-            send_otp_url = register_continue or "https://auth.openai.com/api/accounts/email-otp/send"
-            _info(f"需要邮箱 OTP，发送接口: {send_otp_url}")
-            try:
-                send_resp = _post_with_retry(
-                    s,
-                    send_otp_url,
-                    headers={
-                        "referer": "https://auth.openai.com/create-account/password",
-                        "accept": "application/json",
-                        "content-type": "application/json",
-                        "openai-sentinel-token": sentinel,
-                    },
-                    proxies=proxies,
-                    timeout=30,
-                    retries=2,
-                )
-                _info(f"OTP 发送 HTTP {send_resp.status_code}")
-                if send_resp.status_code != 200:
-                    _warn(f"OTP 发送异常: {send_resp.text[:300]}")
-            except UserStoppedError:
-                raise
-            except Exception as e:
-                _warn(f"OTP 发送请求异常: {e}")
-
-            code = get_oai_code(dev_token, email, proxies)
-            if not code:
-                return _fail(password, "otp_timeout", "未收到验证码")
-
-            _info("校验注册邮箱 OTP")
-            code_resp = _post_with_retry(
+            send_resp = _post_with_retry(
                 s,
-                "https://auth.openai.com/api/accounts/email-otp/validate",
+                send_otp_url,
                 headers={
-                    "referer": "https://auth.openai.com/email-verification",
+                    "referer": "https://auth.openai.com/create-account/password",
                     "accept": "application/json",
                     "content-type": "application/json",
                     "openai-sentinel-token": sentinel,
                 },
-                json_body={"code": code},
                 proxies=proxies,
                 timeout=30,
                 retries=2,
             )
-            _info(f"OTP 校验 HTTP {code_resp.status_code}")
-            if code_resp.status_code != 200:
-                _err(f"OTP 校验失败: {code_resp.text[:400]}")
-                return _fail(password, "otp_validate_failed", f"HTTP {code_resp.status_code}")
-            else:
-                try:
-                    cu = (code_resp.json() or {}).get("continue_url") or ""
-                    if cu:
-                        register_continue = cu
-                except Exception:
-                    pass
-        else:
-            _info("无需邮箱 OTP，直接进入创建账户前步骤")
+            _info(f"OTP 发送 HTTP {send_resp.status_code}")
+            if send_resp.status_code != 200:
+                _warn(f"OTP 发送异常: {send_resp.text[:300]}")
+        except UserStoppedError:
+            raise
+        except Exception as e:
+            _warn(f"OTP 发送请求异常: {e}")
 
-        post_wait = _env_float("REGISTER_POST_WAIT_SEC", 1.5, 0.0, 6.0)
-        if post_wait > 0:
-            if _sleep_interruptible(post_wait):
-                raise UserStoppedError("stopped_by_user")
-        if register_continue:
-            state_url = (
-                register_continue
-                if register_continue.startswith("http")
-                else f"https://auth.openai.com{register_continue}"
-            )
-            _info("GET continue_url，同步会话状态")
-            try:
-                _raise_if_stopped()
-                s.get(
-                    state_url,
-                    proxies=proxies,
-                    verify=_ssl_verify(),
-                    timeout=15,
-                )
-                continue_wait = _env_float("REGISTER_CONTINUE_WAIT_SEC", 1.0, 0.0, 5.0)
-                if continue_wait > 0:
-                    if _sleep_interruptible(continue_wait):
-                        raise UserStoppedError("stopped_by_user")
-            except UserStoppedError:
-                raise
-            except Exception as e:
-                _warn(f"访问 continue_url: {e}")
+        code = get_oai_code(dev_token, email, proxies)
+        if not code:
+            return password, sentinel, True, register_continue, register_page, _run_fail(password, "otp_timeout", "未收到验证码")
 
-        create_account_body = '{"name":"Neo","birthdate":"2000-02-20"}'
-        _info("POST create_account")
-        create_account_resp = _post_with_retry(
+        _info("校验注册邮箱 OTP")
+        code_resp = _post_with_retry(
             s,
-            "https://auth.openai.com/api/accounts/create_account",
+            "https://auth.openai.com/api/accounts/email-otp/validate",
             headers={
-                "referer": "https://auth.openai.com/about-you",
+                "referer": "https://auth.openai.com/email-verification",
                 "accept": "application/json",
                 "content-type": "application/json",
+                "openai-sentinel-token": sentinel,
             },
-            data=create_account_body,
+            json_body={"code": code},
             proxies=proxies,
             timeout=30,
             retries=2,
         )
-        create_account_status = create_account_resp.status_code
-        _info(f"create_account HTTP {create_account_status}")
+        _info(f"OTP 校验 HTTP {code_resp.status_code}")
+        if code_resp.status_code != 200:
+            _err(f"OTP 校验失败: {code_resp.text[:400]}")
+            return password, sentinel, True, register_continue, register_page, _run_fail(password, "otp_validate_failed", f"HTTP {code_resp.status_code}")
+        else:
+            try:
+                cu = (code_resp.json() or {}).get("continue_url") or ""
+                if cu:
+                    register_continue = cu
+            except Exception:
+                pass
+    else:
+        _info("无需邮箱 OTP，直接进入创建账户前步骤")
 
-        if create_account_status != 200:
-            fail_body = create_account_resp.text or ""
-            if "registration_disallowed" in fail_body:
-                _warn(
-                    "registration_disallowed（风控/频控）：建议拉长冷却、换 IP 或减少并发"
-                )
-            _err(f"create_account 失败: {fail_body[:500]}")
-            if "registration_disallowed" in fail_body and email_domain:
-                return (
-                    None,
-                    password,
-                    {
-                        "email_domain": email_domain,
-                        "error_code": "registration_disallowed",
-                    },
-                )
-            return _fail(password, "create_account_failed", f"HTTP {create_account_status}")
-
+    post_wait = _env_float("REGISTER_POST_WAIT_SEC", 1.5, 0.0, 6.0)
+    if post_wait > 0:
+        if _sleep_interruptible(post_wait):
+            raise UserStoppedError("stopped_by_user")
+    if register_continue:
+        state_url = (
+            register_continue
+            if register_continue.startswith("http")
+            else f"https://auth.openai.com{register_continue}"
+        )
+        _info("GET continue_url，同步会话状态")
         try:
-            create_json = create_account_resp.json() or {}
-            create_continue = str(create_json.get("continue_url") or "").strip()
-            create_page = str((create_json.get("page") or {}).get("type") or "").strip()
-            _info(f"创建账户后 page={create_page} url={create_continue[:120]}")
-        except Exception:
-            create_continue = ""
-            create_page = ""
-
-        if _is_add_phone_page(create_page) or _is_add_phone_url(create_continue):
-            _info("进入手机号页：优先尝试 HeroSMS 手机验证")
-            phone_entry_url = str(create_continue or "https://auth.openai.com/add-phone").strip()
-            phone_ok, phone_next, phone_reason = _handle_add_phone_challenge(
-                s,
-                current_url=phone_entry_url,
+            _raise_if_stopped()
+            s.get(
+                state_url,
                 proxies=proxies,
-                email=email,
-                hint_url=phone_entry_url,
-                scene="注册流程",
-                mark_bad_email_on_fail=False,
+                verify=_ssl_verify(),
+                timeout=15,
             )
-            if phone_ok:
-                create_continue = str(phone_next or create_continue or "").strip()
-                create_page = ""
-                _info("HeroSMS 手机验证通过，继续当前会话")
-            else:
-                create_continue = str(phone_next or create_continue or phone_entry_url).strip()
-                _info("改走邮箱密码登录完成 OAuth")
-                try:
-                    account = _login_via_password_and_finish_oauth(
-                        email, password, dev_token, proxies
-                    )
-                except HeroSmsBalanceLowError as e:
-                    return _fail(
-                        password,
-                        "phone_balance_insufficient",
-                        str(e or "HeroSMS 余额不足")[:220],
-                    )
-                except HeroSmsCountryBlockedError as e:
-                    return _fail(
-                        password,
-                        "phone_country_blocked",
-                        str(e or "国家受限")[:220],
-                    )
-                except HeroSmsCodeTimeoutError as e:
-                    return _fail(
-                        password,
-                        "phone_sms_timeout",
-                        str(e or "接码超时")[:220],
-                    )
-                if account:
-                    _mark_graph_bad_email(email, "注册成功后已消费")
-                    return _ok(account, password)
-                _err("手机号分支下补救登录失败")
-                if _is_add_phone_url(create_continue) or _is_add_phone_page(create_page):
-                    _mark_graph_bad_email(email, "add_phone_required")
-                    return _fail(
-                        password,
-                        "phone_gate",
-                        str(phone_reason or "进入 add-phone，需手机号验证")[:220],
-                    )
-                return None, password
+            continue_wait = _env_float("REGISTER_CONTINUE_WAIT_SEC", 1.0, 0.0, 5.0)
+            if continue_wait > 0:
+                if _sleep_interruptible(continue_wait):
+                    raise UserStoppedError("stopped_by_user")
+        except UserStoppedError:
+            raise
+        except Exception as e:
+            _warn(f"访问 continue_url: {e}")
 
-        workspace_hint_url = ""
-        if create_continue:
-            workspace_hint_url = (
-                create_continue
-                if create_continue.startswith("http")
-                else f"https://auth.openai.com{create_continue}"
-            )
-            _info("GET create_account continue_url，同步会话状态")
-            try:
-                _, follow_url = _follow_redirect_chain(s, workspace_hint_url, proxies)
-                if follow_url:
-                    workspace_hint_url = follow_url
-                if "code=" in follow_url and "state=" in follow_url:
-                    account = submit_callback_url(
-                        callback_url=follow_url,
-                        code_verifier=oauth.code_verifier,
-                        redirect_uri=oauth.redirect_uri,
-                        expected_state=oauth.state,
-                    )
-                    _mark_graph_bad_email(email, "注册成功后已消费")
-                    return _ok(account, password)
-            except UserStoppedError:
-                raise
-            except Exception as e:
-                _warn(f"访问 create_account continue_url: {e}")
+    return password, sentinel, need_otp, register_continue, register_page, None
 
-        auth_cookie, auth_claims, workspaces = _session_workspaces(s)
-        if not auth_cookie:
-            _err("未获取 oai-client-auth-session")
-            return None, password
 
-        workspace_referer = "https://auth.openai.com/sign-in-with-chatgpt/codex/consent"
-        if not workspaces:
-            _info("Cookie 无 workspace，尝试刷新会话")
-            try:
-                workspaces, workspace_referer = _refresh_workspace_candidates(
-                    s,
-                    proxies,
-                    hint_url=workspace_hint_url,
-                    base_referer=workspace_referer,
-                )
-            except UserStoppedError:
-                raise
-            except Exception as e:
-                _warn(f"刷新 workspace 会话失败: {e}")
-        if not workspaces:
-            _, auth_claims, _ = _session_workspaces(s)
-            keys = sorted([str(k) for k in (auth_claims or {}).keys()])
-            key_preview = ",".join(keys[:8])
+def _run_phase_create(
+    s: Any,
+    password: str,
+    email: str,
+    dev_token: str,
+    sentinel: str,
+    need_otp: bool,
+    register_continue: str,
+    register_page: str,
+    proxies: Any,
+    oauth: Any,
+    email_domain: str,
+) -> Any:
+    create_account_body = '{"name":"Neo","birthdate":"2000-02-20"}'
+    _info("POST create_account")
+    create_account_resp = _post_with_retry(
+        s,
+        "https://auth.openai.com/api/accounts/create_account",
+        headers={
+            "referer": "https://auth.openai.com/about-you",
+            "accept": "application/json",
+            "content-type": "application/json",
+        },
+        data=create_account_body,
+        proxies=proxies,
+        timeout=30,
+        retries=2,
+    )
+    create_account_status = create_account_resp.status_code
+    _info(f"create_account HTTP {create_account_status}")
+
+    if create_account_status != 200:
+        fail_body = create_account_resp.text or ""
+        if "registration_disallowed" in fail_body:
             _warn(
-                "注册流程 workspace 仍为空："
-                f"url={str(workspace_hint_url or '').strip()[:80]}，"
-                f"claims_keys=[{key_preview}]"
+                "registration_disallowed（风控/频控）：建议拉长冷却、换 IP 或减少并发"
             )
-            _info("仍无 workspace，补救登录")
+        _err(f"create_account 失败: {fail_body[:500]}")
+        if "registration_disallowed" in fail_body and email_domain:
+            return (
+                None,
+                password,
+                {
+                    "email_domain": email_domain,
+                    "error_code": "registration_disallowed",
+                },
+            )
+        return _run_fail(password, "create_account_failed", f"HTTP {create_account_status}", email_domain=email_domain)
+
+    try:
+        create_json = create_account_resp.json() or {}
+        create_continue = str(create_json.get("continue_url") or "").strip()
+        create_page = str((create_json.get("page") or {}).get("type") or "").strip()
+        _info(f"创建账户后 page={create_page} url={create_continue[:120]}")
+    except Exception:
+        create_continue = ""
+        create_page = ""
+
+    if _is_add_phone_page(create_page) or _is_add_phone_url(create_continue):
+        _info("进入手机号页：优先尝试 HeroSMS 手机验证")
+        phone_entry_url = str(create_continue or "https://auth.openai.com/add-phone").strip()
+        phone_ok, phone_next, phone_reason = _handle_add_phone_challenge(
+            s,
+            current_url=phone_entry_url,
+            proxies=proxies,
+            email=email,
+            hint_url=phone_entry_url,
+            scene="注册流程",
+            mark_bad_email_on_fail=False,
+        )
+        if phone_ok:
+            create_continue = str(phone_next or create_continue or "").strip()
+            create_page = ""
+            _info("HeroSMS 手机验证通过，继续当前会话")
+        else:
+            create_continue = str(phone_next or create_continue or phone_entry_url).strip()
+            _info("改走邮箱密码登录完成 OAuth")
             try:
                 account = _login_via_password_and_finish_oauth(
                     email, password, dev_token, proxies
                 )
             except HeroSmsBalanceLowError as e:
-                return _fail(
+                return _run_fail(
                     password,
                     "phone_balance_insufficient",
                     str(e or "HeroSMS 余额不足")[:220],
                 )
             except HeroSmsCountryBlockedError as e:
-                return _fail(
+                return _run_fail(
                     password,
                     "phone_country_blocked",
                     str(e or "国家受限")[:220],
                 )
             except HeroSmsCodeTimeoutError as e:
-                return _fail(
+                return _run_fail(
                     password,
                     "phone_sms_timeout",
                     str(e or "接码超时")[:220],
                 )
             if account:
                 _mark_graph_bad_email(email, "注册成功后已消费")
-                return _ok(account, password)
-            _err("无 workspace 且补救登录失败")
-            return None, password
-        workspace_id = str((workspaces[0] or {}).get("id") or "").strip()
-        if not workspace_id:
-            _err("无法解析 workspace_id")
+                return _run_ok(account, password)
+            _err("手机号分支下补救登录失败")
+            if _is_add_phone_url(create_continue) or _is_add_phone_page(create_page):
+                _mark_graph_bad_email(email, "add_phone_required")
+                return _run_fail(
+                    password,
+                    "phone_gate",
+                    str(phone_reason or "进入 add-phone，需手机号验证")[:220],
+                )
             return None, password
 
-        select_body = f'{{"workspace_id":"{workspace_id}"}}'
-        _info("POST workspace/select")
-        select_resp = _post_with_retry(
-            s,
-            "https://auth.openai.com/api/accounts/workspace/select",
-            headers={
-                "referer": workspace_referer,
-                "accept": "application/json",
-                "content-type": "application/json",
-            },
-            data=select_body,
-            proxies=proxies,
-            timeout=30,
-            retries=2,
+    workspace_hint_url = ""
+    if create_continue:
+        workspace_hint_url = (
+            create_continue
+            if create_continue.startswith("http")
+            else f"https://auth.openai.com{create_continue}"
         )
-
-        if select_resp.status_code != 200:
-            _err(
-                f"workspace/select 失败 HTTP {select_resp.status_code}: {select_resp.text[:400]}"
-            )
-            return None, password
-
+        _info("GET create_account continue_url，同步会话状态")
         try:
-            select_data = select_resp.json() or {}
-        except Exception:
-            select_data = {}
-        continue_url = _extract_next_url(select_data).strip()
-        if not continue_url:
-            _err("workspace/select 后无 continue_url")
-            return None, password
-
-        current_url = continue_url
-        for _ in range(6):
-            _raise_if_stopped()
-            final_resp = s.get(
-                current_url,
-                allow_redirects=False,
-                proxies=proxies,
-                verify=_ssl_verify(),
-                timeout=15,
-            )
-            location = final_resp.headers.get("Location") or ""
-
-            if final_resp.status_code not in [301, 302, 303, 307, 308]:
-                break
-            if not location:
-                break
-
-            next_url = urllib.parse.urljoin(current_url, location)
-            if "code=" in next_url and "state=" in next_url:
+            _, follow_url = _follow_redirect_chain(s, workspace_hint_url, proxies)
+            if follow_url:
+                workspace_hint_url = follow_url
+            if "code=" in follow_url and "state=" in follow_url:
                 account = submit_callback_url(
-                    callback_url=next_url,
+                    callback_url=follow_url,
                     code_verifier=oauth.code_verifier,
                     redirect_uri=oauth.redirect_uri,
                     expected_state=oauth.state,
                 )
                 _mark_graph_bad_email(email, "注册成功后已消费")
-                return _ok(account, password)
-            current_url = next_url
+                return _run_ok(account, password)
+        except UserStoppedError:
+            raise
+        except Exception as e:
+            _warn(f"访问 create_account continue_url: {e}")
 
-        _err("重定向链未出现 OAuth callback")
+    auth_cookie, auth_claims, workspaces = _session_workspaces(s)
+    if not auth_cookie:
+        _err("未获取 oai-client-auth-session")
         return None, password
+
+    workspace_referer = "https://auth.openai.com/sign-in-with-chatgpt/codex/consent"
+    if not workspaces:
+        _info("Cookie 无 workspace，尝试刷新会话")
+        try:
+            workspaces, workspace_referer = _refresh_workspace_candidates(
+                s,
+                proxies,
+                hint_url=workspace_hint_url,
+                base_referer=workspace_referer,
+            )
+        except UserStoppedError:
+            raise
+        except Exception as e:
+            _warn(f"刷新 workspace 会话失败: {e}")
+    if not workspaces:
+        _, auth_claims, _ = _session_workspaces(s)
+        keys = sorted([str(k) for k in (auth_claims or {}).keys()])
+        key_preview = ",".join(keys[:8])
+        _warn(
+            "注册流程 workspace 仍为空："
+            f"url={str(workspace_hint_url or '').strip()[:80]}，"
+            f"claims_keys=[{key_preview}]"
+        )
+        _info("仍无 workspace，补救登录")
+        try:
+            account = _login_via_password_and_finish_oauth(
+                email, password, dev_token, proxies
+            )
+        except HeroSmsBalanceLowError as e:
+            return _run_fail(
+                password,
+                "phone_balance_insufficient",
+                str(e or "HeroSMS 余额不足")[:220],
+            )
+        except HeroSmsCountryBlockedError as e:
+            return _run_fail(
+                password,
+                "phone_country_blocked",
+                str(e or "国家受限")[:220],
+            )
+        except HeroSmsCodeTimeoutError as e:
+            return _run_fail(
+                password,
+                "phone_sms_timeout",
+                str(e or "接码超时")[:220],
+            )
+        if account:
+            _mark_graph_bad_email(email, "注册成功后已消费")
+            return _run_ok(account, password)
+        _err("无 workspace 且补救登录失败")
+        return None, password
+
+    workspace_id = str((workspaces[0] or {}).get("id") or "").strip()
+    if not workspace_id:
+        _err("无法解析 workspace_id")
+        return None, password
+
+    select_body = f'{{"workspace_id":"{workspace_id}"}}'
+    _info("POST workspace/select")
+    select_resp = _post_with_retry(
+        s,
+        "https://auth.openai.com/api/accounts/workspace/select",
+        headers={
+            "referer": workspace_referer,
+            "accept": "application/json",
+            "content-type": "application/json",
+        },
+        data=select_body,
+        proxies=proxies,
+        timeout=30,
+        retries=2,
+    )
+
+    if select_resp.status_code != 200:
+        _err(
+            f"workspace/select 失败 HTTP {select_resp.status_code}: {select_resp.text[:400]}"
+        )
+        return None, password
+
+    try:
+        select_data = select_resp.json() or {}
+    except Exception:
+        select_data = {}
+    continue_url = _extract_next_url(select_data).strip()
+    if not continue_url:
+        _err("workspace/select 后无 continue_url")
+        return None, password
+
+    current_url = continue_url
+    for _ in range(6):
+        _raise_if_stopped()
+        final_resp = s.get(
+            current_url,
+            allow_redirects=False,
+            proxies=proxies,
+            verify=_ssl_verify(),
+            timeout=15,
+        )
+        location = final_resp.headers.get("Location") or ""
+
+        if final_resp.status_code not in [301, 302, 303, 307, 308]:
+            break
+        if not location:
+            break
+
+        next_url = urllib.parse.urljoin(current_url, location)
+        if "code=" in next_url and "state=" in next_url:
+            account = submit_callback_url(
+                callback_url=next_url,
+                code_verifier=oauth.code_verifier,
+                redirect_uri=oauth.redirect_uri,
+                expected_state=oauth.state,
+            )
+            _mark_graph_bad_email(email, "注册成功后已消费")
+            return _run_ok(account, password)
+        current_url = next_url
+
+    _err("重定向链未出现 OAuth callback")
+    return None, password
+
+
+def run(proxy: Optional[str]):
+    """
+    单次完整注册。返回值：
+    - 成功: (OAuth 账号字典, 明文密码)
+    - 失败: (None, "") 或 (None, password)（已生成密码但后续失败时便于落盘）
+    - 注册表单 403: ("retry_403", "") 由调用方冷却重试
+    """
+    try:
+        s, fp, proxies, email, dev_token, email_domain, oauth, url, err = _run_phase_init(proxy)
+        if err is not None:
+            return err
+
+        password, sentinel, need_otp, register_continue, register_page, err = _run_phase_signup(
+            s, url, email, proxies
+        )
+        if err is not None:
+            return err
+
+        return _run_phase_create(
+            s, password, email, dev_token, sentinel, need_otp,
+            register_continue, register_page, proxies, oauth, email_domain
+        )
 
     except UserStoppedError:
         _warn("检测到停止指令，终止当前注册流程")
-        return _fail("", "stopped_by_user", "用户停止任务")
+        return _run_fail("", "stopped_by_user", "用户停止任务")
     except HeroSmsBalanceLowError as e:
-        return _fail("", "phone_balance_insufficient", str(e)[:220])
+        return _run_fail("", "phone_balance_insufficient", str(e)[:220])
     except HeroSmsCountryBlockedError as e:
-        return _fail("", "phone_country_blocked", str(e)[:220])
+        return _run_fail("", "phone_country_blocked", str(e)[:220])
     except HeroSmsCodeTimeoutError as e:
-        return _fail("", "phone_sms_timeout", str(e)[:220])
+        return _run_fail("", "phone_sms_timeout", str(e)[:220])
     except Exception as e:
         _err(f"运行异常: {e}")
         emsg = str(e)
@@ -3773,7 +3845,7 @@ def run(proxy: Optional[str]):
             or "wrong version number" in low
             or "certificate" in low
         )
-        return _fail("", "tls_error" if is_tls else "runtime_exception", emsg)
+        return _run_fail("", "tls_error" if is_tls else "runtime_exception", emsg)
 
 
 def main() -> None:
