@@ -11,3 +11,5 @@ build/
 dist/
 release-artifacts/
 *.spec
+Pipfile.lock
+Pipfile
