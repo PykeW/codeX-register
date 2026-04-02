@@ -236,7 +236,7 @@ class MailFreeService(MailServiceBase):
                 impersonate="safari",
                 verify=self.verify_ssl,
                 timeout=timeout,
-            )  # type: ignore[arg-type]
+            )  # type: ignore
         except Exception as e:
             raise MailServiceError(f"{method} {path} 请求失败: {e}") from e
 
@@ -976,7 +976,7 @@ class LuckyousOpenApiService(MailServiceBase):
                 impersonate="safari",
                 verify=self.verify_ssl,
                 timeout=timeout,
-            )  # type: ignore[arg-type]
+            )  # type: ignore
         except Exception as e:
             raise MailServiceError(f"{method} {path} 请求失败: {e}") from e
 
@@ -2319,7 +2319,7 @@ class MicrosoftGraphService(MailServiceBase):
                 impersonate="chrome",
                 verify=self.verify_ssl,
                 timeout=25,
-            )  # type: ignore[arg-type]
+            )  # type: ignore
         except Exception as e:
             raise MailServiceError(f"Graph 请求失败: {e}") from e
         if resp.status_code == 401:
@@ -2337,7 +2337,7 @@ class MicrosoftGraphService(MailServiceBase):
                 impersonate="chrome",
                 verify=self.verify_ssl,
                 timeout=25,
-            )  # type: ignore[arg-type]
+            )  # type: ignore
         return resp
 
     @staticmethod
