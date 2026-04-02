@@ -2300,7 +2300,7 @@ class RegisterService:
 
             stats_fn = getattr(r_with_pwd, "get_hero_sms_runtime_stats", None)
             if callable(stats_fn):
-                stats: dict = stats_fn() or {}
+                stats: dict[str, Any] = stats_fn() or {}
                 data["spent_usd"] = round(
                     max(0.0, float(stats.get("spent_total_usd") or 0.0)),
                     4,
@@ -2316,7 +2316,9 @@ class RegisterService:
                 proxy_map = {"http": proxy, "https": proxy} if proxy else None
                 bal_fn = getattr(r_with_pwd, "hero_sms_get_balance", None)
                 if callable(bal_fn):
-                    bal_raw, err = bal_fn(proxy_map)
+                    _bal_result = bal_fn(proxy_map)
+                    bal_raw = _bal_result[0] if isinstance(_bal_result, tuple) else None
+                    err = _bal_result[1] if isinstance(_bal_result, tuple) and len(_bal_result) > 1 else None
                     bal = float(bal_raw if bal_raw is not None else -1)
                     if bal >= 0:
                         data["balance_usd"] = round(bal, 4)
@@ -2333,7 +2335,7 @@ class RegisterService:
                         pass
                 if callable(ctry_fn):
                     try:
-                        data["country_resolved"] = int(ctry_fn(proxy_map))
+                        data["country_resolved"] = int(ctry_fn(proxy_map) or -1)
                     except Exception:
                         pass
         except Exception as e:
@@ -2393,19 +2395,20 @@ class RegisterService:
 
             if callable(resolve_country_fn):
                 try:
-                    _country_val = resolve_country_fn(proxy_map)
-                    out["country_resolved"] = int(_country_val if _country_val is not None else -1)
+                    _country_val: Any = resolve_country_fn(proxy_map)
+                    out["country_resolved"] = int(_country_val or -1)
                 except Exception:
                     pass
 
-            ok_c: Any
-            text_c: Any
-            countries_data: Any
-            ok_c, text_c, countries_data = req_fn(
+            _cres = req_fn(
                 "getCountries",
                 proxies=proxy_map,
                 timeout=30,
             )
+            if isinstance(_cres, tuple) and len(_cres) == 3:
+                ok_c, text_c, countries_data = _cres
+            else:
+                ok_c, text_c, countries_data = False, "", []
             if not ok_c:
                 out["error"] = str(text_c or "getCountries failed")[:220]
                 return out
@@ -2415,15 +2418,16 @@ class RegisterService:
             params: dict[str, Any] = {}
             if service_resolved:
                 params["service"] = service_resolved
-            ok_p: Any
-            text_p: Any
-            prices_data: Any
-            ok_p, text_p, prices_data = req_fn(
+            _pres = req_fn(
                 "getPrices",
                 proxies=proxy_map,
                 params=params,
                 timeout=30,
             )
+            if isinstance(_pres, tuple) and len(_pres) == 3:
+                ok_p, text_p, prices_data = _pres
+            else:
+                ok_p, text_p, prices_data = False, "", {}
             if ok_p and isinstance(prices_data, dict):
                 for country_id, raw_entry in prices_data.items():
                     key = str(country_id or "").strip()

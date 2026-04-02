@@ -505,7 +505,8 @@ def _relogin_openai_account_by_password(
     if not isinstance(account, dict):
         return False, {}, "密码登录未返回可用账号数据"
 
-    creds: dict = account.get("credentials") if isinstance(account.get("credentials"), dict) else {}
+    _creds = account.get("credentials")
+    creds: dict[str, Any] = _creds if isinstance(_creds, dict) else {}
     access_token = str(creds.get("access_token") or "").strip()
     refresh_token = str(creds.get("refresh_token") or "").strip()
     if not access_token or not refresh_token:
@@ -513,7 +514,8 @@ def _relogin_openai_account_by_password(
 
     if not str(account.get("name") or "").strip():
         account["name"] = em
-    extra: dict = account.get("extra") if isinstance(account.get("extra"), dict) else {}
+    _extra = account.get("extra")
+    extra: dict[str, Any] = _extra if isinstance(_extra, dict) else {}
     account["extra"] = extra
     if not str(extra.get("email") or "").strip():
         extra["email"] = em
