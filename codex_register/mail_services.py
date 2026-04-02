@@ -227,7 +227,7 @@ class MailFreeService(MailServiceBase):
             cookies = {"mailfree-session": cookie}
         try:
             resp = requests.request(
-                method=method,
+                method=method,  # type: ignore
                 url=self._api_url(path),
                 params=params,
                 json=json_body,
@@ -967,7 +967,7 @@ class LuckyousOpenApiService(MailServiceBase):
             headers["X-API-Key"] = self.api_key
         try:
             resp = requests.request(
-                method=method,
+                method=method,  # type: ignore
                 url=self._api_url(path),
                 params=params,
                 json=json_body,
@@ -2310,7 +2310,7 @@ class MicrosoftGraphService(MailServiceBase):
         url = f"https://graph.microsoft.com/v1.0{path}"
         try:
             resp = requests.request(
-                method=method,
+                method=method,  # type: ignore
                 url=url,
                 headers=headers,
                 params=params,
@@ -2328,7 +2328,7 @@ class MicrosoftGraphService(MailServiceBase):
             token = self._refresh_access_token(acc, proxies=proxies)
             headers["Authorization"] = f"Bearer {token}"
             resp = requests.request(
-                method=method,
+                method=method,  # type: ignore
                 url=url,
                 headers=headers,
                 params=params,

@@ -129,7 +129,7 @@ class CloudflareTempEmailService(MailServiceBase):
         }
         try:
             return requests.request(
-                method=method,
+                method=method,  # type: ignore
                 url=self._api_url(path),
                 params=params,
                 json=json_body,
@@ -226,7 +226,7 @@ class CloudflareTempEmailService(MailServiceBase):
                         continue
                     payload = part.get_payload(decode=True)
                     charset = part.get_content_charset() or "utf-8"
-                    text = payload.decode(charset, errors="replace") if payload else ""
+                    text = payload.decode(charset, errors="replace") if isinstance(payload, bytes) else ""
                     if ctype == "text/html":
                         html_parts.append(text)
                     else:
@@ -234,7 +234,7 @@ class CloudflareTempEmailService(MailServiceBase):
             else:
                 payload = msg.get_payload(decode=True)
                 charset = msg.get_content_charset() or "utf-8"
-                text = payload.decode(charset, errors="replace") if payload else ""
+                text = payload.decode(charset, errors="replace") if isinstance(payload, bytes) else ""
                 ctype = str(msg.get_content_type() or "").lower()
                 if "html" in ctype:
                     html_parts.append(text)

@@ -110,7 +110,7 @@ class CloudMailService(MailServiceBase):
             headers["Authorization"] = self._get_token(proxies=proxies)
         try:
             return requests.request(
-                method=method,
+                method=method,  # type: ignore
                 url=f"{self.api_url}{path}",
                 headers=headers,
                 json=json_body,
@@ -299,9 +299,10 @@ class CloudMailService(MailServiceBase):
                 msg = str(payload.get("message") or payload.get("msg") or "")
             raise MailServiceError(f"CloudMail 拉取邮件失败: {msg or 'code 非 200'}")
 
-        rows = []
-        if isinstance(payload, dict) and isinstance(payload.get("data"), list):
-            rows = [x for x in payload.get("data") if isinstance(x, dict)]
+        data = payload.get("data") if isinstance(payload, dict) else []
+        rows: list[dict[str, Any]] = []
+        if isinstance(data, list):
+            rows = [x for x in data if isinstance(x, dict)]
 
         out: list[dict[str, Any]] = []
         for idx, item in enumerate(rows):

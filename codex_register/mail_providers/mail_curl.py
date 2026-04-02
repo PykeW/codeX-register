@@ -68,7 +68,7 @@ class MailCurlService(MailServiceBase):
         url = f"{self.api_base}{path}"
         try:
             return requests.request(
-                method=method,
+                method=method,  # type: ignore
                 url=url,
                 params=query,
                 proxies=proxies,
