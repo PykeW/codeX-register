@@ -91,7 +91,7 @@ body:
       description: 可补充配置方式、依赖安装命令、是否能稳定复现、是否改过源码等信息。
       placeholder: |
         例如：
-        - 安装命令：`pip install -r requirements.txt`
+        - 安装命令：`python -m pip install -r requirements.txt`
         - 是否修改过源码：否
         - 是否稳定复现：是
         - 其他你认为有帮助的信息

@@ -45,17 +45,24 @@ CodeX Register 是一个本地桌面化控制台，用于统一执行注册流�
 - 依赖安装：
 
 ```bash
-pip install requests curl_cffi pywebview
+python -m pip install -r requirements.txt
+```
+
+- 如需本地执行打包：
+
+```bash
+python -m pip install -r requirements-build.txt
 ```
 
 说明：
 
 - `window` 模式依赖 `pywebview`，Windows 需安装 WebView2 Runtime。
+- 发布打包依赖 `PyInstaller`，已单独放在 `requirements-build.txt`。
 - 前端资源通过 CDN 加载（`unpkg.com`）。
 
 ## 4. 快速开始
 
-1) 复制示例配置
+1. 复制示例配置
 
 ```bash
 cp gui_config.example.json gui_config.json
@@ -67,9 +74,9 @@ PowerShell：
 Copy-Item gui_config.example.json gui_config.json
 ```
 
-2) 填写 `gui_config.json` 关键项（邮箱服务、代理、SMS、云端管理地址等）
+2. 填写 `gui_config.json` 关键项（邮箱服务、代理、SMS、云端管理地址等）
 
-3) 启动
+3. 启动
 
 ```bash
 python gui.py
@@ -79,7 +86,7 @@ python gui.py
 
 - 大部分配置项可以在程序启动后直接在 GUI 中查看和修改，通常不需要手改 `gui_config.json`。
 
-4) 可选参数
+4. 可选参数
 
 ```bash
 python gui.py --mode browser --host 127.0.0.1 --port 8765
@@ -108,7 +115,7 @@ python gui.py --mode browser --no-auto-open
 1. 填 Cloudflare API Token，点击“刷新域名”。
 2. 选择 Zone 与 CNAME 指向域名。
 3. 可查看/新增/编辑/批量删除 CNAME。
-4. 勾选记录后可“批量同步MailFree”，会把完整域名写入 MailFree 的 `/api/domains`。
+4. 勾选记录后可“批量同步 MailFree”，会把完整域名写入 MailFree 的 `/api/domains`。
 
 注意：同步到 MailFree 需要该 MailFree 账号具备严格管理员权限。
 
@@ -139,139 +146,139 @@ Cloudflare Token 要求（用于域名配置页读取 Zone 和管理 CNAME）：
 
 ### 6.1 注册与运行节奏
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `num_accounts` | int | `1` | 每个批次目标成功数 |
-| `num_files` | int | `1` | 批次数量 |
-| `concurrency` | int | `1` | 并发线程数 |
-| `sleep_min` | int | `5` | 每次尝试后最小冷却秒数 |
-| `sleep_max` | int | `30` | 每次尝试后最大冷却秒数 |
-| `fast_mode` | bool | `false` | 加速模式 |
-| `retry_403_wait_sec` | int | `10` | 命中 403 的等待秒数 |
-| `proxy` | string | `""` | 代理地址；支持多条轮换 |
-| `register_random_fingerprint` | bool | `true` | 是否随机浏览器指纹 |
-| `openai_ssl_verify` | bool | `true` | HTTPS 证书校验 |
-| `skip_net_check` | bool | `false` | 跳过出口地区检测 |
+| 键名                          | 类型   |  默认值 | 说明                   |
+| ----------------------------- | ------ | ------: | ---------------------- |
+| `num_accounts`                | int    |     `1` | 每个批次目标成功数     |
+| `num_files`                   | int    |     `1` | 批次数量               |
+| `concurrency`                 | int    |     `1` | 并发线程数             |
+| `sleep_min`                   | int    |     `5` | 每次尝试后最小冷却秒数 |
+| `sleep_max`                   | int    |    `30` | 每次尝试后最大冷却秒数 |
+| `fast_mode`                   | bool   | `false` | 加速模式               |
+| `retry_403_wait_sec`          | int    |    `10` | 命中 403 的等待秒数    |
+| `proxy`                       | string |    `""` | 代理地址；支持多条轮换 |
+| `register_random_fingerprint` | bool   |  `true` | 是否随机浏览器指纹     |
+| `openai_ssl_verify`           | bool   |  `true` | HTTPS 证书校验         |
+| `skip_net_check`              | bool   | `false` | 跳过出口地区检测       |
 
 ### 6.2 FlClash 动态换 IP
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `flclash_enable_switch` | bool | `false` | 是否启用 FlClash 动态切换 |
-| `flclash_controller` | string | `127.0.0.1:9090` | 控制器地址 |
-| `flclash_secret` | string | `""` | 控制器鉴权 secret |
-| `flclash_group` | string | `PROXY` | Selector 组名 |
-| `flclash_switch_policy` | string | `round_robin` | `round_robin` / `random` |
-| `flclash_switch_wait_sec` | float | `1.2` | 切换后等待秒数 |
-| `flclash_rotate_every` | int | `3` | 每波次尝试数（达到后切下一节点） |
-| `flclash_delay_test_url` | string | `https://www.gstatic.com/generate_204` | 延迟探测 URL |
-| `flclash_delay_timeout_ms` | int | `4000` | 延迟探测超时 |
-| `flclash_delay_max_ms` | int | `1800` | 可用阈值 |
-| `flclash_delay_retry` | int | `1` | 延迟探测重试次数 |
+| 键名                       | 类型   |                                 默认值 | 说明                             |
+| -------------------------- | ------ | -------------------------------------: | -------------------------------- |
+| `flclash_enable_switch`    | bool   |                                `false` | 是否启用 FlClash 动态切换        |
+| `flclash_controller`       | string |                       `127.0.0.1:9090` | 控制器地址                       |
+| `flclash_secret`           | string |                                   `""` | 控制器鉴权 secret                |
+| `flclash_group`            | string |                                `PROXY` | Selector 组名                    |
+| `flclash_switch_policy`    | string |                          `round_robin` | `round_robin` / `random`         |
+| `flclash_switch_wait_sec`  | float  |                                  `1.2` | 切换后等待秒数                   |
+| `flclash_rotate_every`     | int    |                                    `3` | 每波次尝试数（达到后切下一节点） |
+| `flclash_delay_test_url`   | string | `https://www.gstatic.com/generate_204` | 延迟探测 URL                     |
+| `flclash_delay_timeout_ms` | int    |                                 `4000` | 延迟探测超时                     |
+| `flclash_delay_max_ms`     | int    |                                 `1800` | 可用阈值                         |
+| `flclash_delay_retry`      | int    |                                    `1` | 延迟探测重试次数                 |
 
 ### 6.3 邮箱通用策略
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `mail_service_provider` | string | `mailfree` | `cloudflare_temp_email` / `mailfree` / `cloudmail` / `mail_curl` / `luckyous` / `gmail` / `graph` |
-| `mail_domains` | string | `""` | 通用域名池（主要用于 Cloudflare Temp / CloudMail） |
-| `mail_domain_allowlist` | array | `[]` | 注册域白名单 |
-| `mailfree_random_domain` | bool | `true` | 是否随机域名 |
-| `mailbox_custom_enabled` | bool | `false` | 自定义邮箱 local-part |
-| `mailbox_prefix` | string | `""` | local-part 前缀 |
-| `mailbox_random_len` | int | `0` | 前缀后追加随机长度 |
+| 键名                     | 类型   |     默认值 | 说明                                                                                              |
+| ------------------------ | ------ | ---------: | ------------------------------------------------------------------------------------------------- |
+| `mail_service_provider`  | string | `mailfree` | `cloudflare_temp_email` / `mailfree` / `cloudmail` / `mail_curl` / `luckyous` / `gmail` / `graph` |
+| `mail_domains`           | string |       `""` | 通用域名池（主要用于 Cloudflare Temp / CloudMail）                                                |
+| `mail_domain_allowlist`  | array  |       `[]` | 注册域白名单                                                                                      |
+| `mailfree_random_domain` | bool   |     `true` | 是否随机域名                                                                                      |
+| `mailbox_custom_enabled` | bool   |    `false` | 自定义邮箱 local-part                                                                             |
+| `mailbox_prefix`         | string |       `""` | local-part 前缀                                                                                   |
+| `mailbox_random_len`     | int    |        `0` | 前缀后追加随机长度                                                                                |
 
 ### 6.4 MailFree / Cloudflare Temp / Cloudflare DNS 配置
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `worker_domain` | string | `""` | MailFree 服务地址 |
-| `freemail_username` | string | `""` | MailFree 用户名 |
-| `freemail_password` | string | `""` | MailFree 密码 |
-| `cf_temp_base_url` | string | `""` | Cloudflare Temp Email 服务地址（与 MailFree 独立） |
-| `cf_temp_mail_domains` | string | `""` | Cloudflare Temp Email 域名池（与 MailFree 独立） |
-| `cf_api_token` | string | `""` | Cloudflare API Token（权限建议：Zone Read + DNS Read/Edit） |
-| `cf_account_id` | string | `""` | 兼容字段 |
-| `cf_worker_script` | string | `mailfree` | 兼容字段 |
-| `cf_worker_mail_domain_binding` | string | `MAIL_DOMAIN` | 兼容字段 |
-| `cf_dns_target_domain` | string | `""` | CNAME 目标域名默认值 |
-| `cf_temp_admin_auth` | string | `""` | Cloudflare Temp Email 管理员认证 |
+| 键名                            | 类型   |        默认值 | 说明                                                        |
+| ------------------------------- | ------ | ------------: | ----------------------------------------------------------- |
+| `worker_domain`                 | string |          `""` | MailFree 服务地址                                           |
+| `freemail_username`             | string |          `""` | MailFree 用户名                                             |
+| `freemail_password`             | string |          `""` | MailFree 密码                                               |
+| `cf_temp_base_url`              | string |          `""` | Cloudflare Temp Email 服务地址（与 MailFree 独立）          |
+| `cf_temp_mail_domains`          | string |          `""` | Cloudflare Temp Email 域名池（与 MailFree 独立）            |
+| `cf_api_token`                  | string |          `""` | Cloudflare API Token（权限建议：Zone Read + DNS Read/Edit） |
+| `cf_account_id`                 | string |          `""` | 兼容字段                                                    |
+| `cf_worker_script`              | string |    `mailfree` | 兼容字段                                                    |
+| `cf_worker_mail_domain_binding` | string | `MAIL_DOMAIN` | 兼容字段                                                    |
+| `cf_dns_target_domain`          | string |          `""` | CNAME 目标域名默认值                                        |
+| `cf_temp_admin_auth`            | string |          `""` | Cloudflare Temp Email 管理员认证                            |
 
 ### 6.5 CloudMail / Mail-Curl / Luckyous
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `cloudmail_api_url` | string | `""` | CloudMail API 地址 |
-| `cloudmail_admin_email` | string | `""` | CloudMail 管理员邮箱 |
-| `cloudmail_admin_password` | string | `""` | CloudMail 管理员密码 |
-| `mail_curl_api_base` | string | `""` | Mail-Curl API 地址 |
-| `mail_curl_key` | string | `""` | Mail-Curl Key |
-| `luckyous_api_base` | string | `https://mails.luckyous.com` | Luckyous API 地址 |
-| `luckyous_api_key` | string | `""` | Luckyous API Key（X-API-Key） |
-| `luckyous_project_code` | string | `""` | Luckyous 项目编码（必填） |
-| `luckyous_email_type` | string | `ms_graph` | Luckyous 邮箱类型（如 `ms_graph`） |
-| `luckyous_domain` | string | `""` | Luckyous 指定域名（可选） |
-| `luckyous_variant_mode` | string | `""` | Luckyous 变种模式（可选：`dot/plus/mixed/all`） |
-| `luckyous_specified_email` | string | `""` | Luckyous 指定邮箱（可选，优先于 domain） |
+| 键名                       | 类型   |                       默认值 | 说明                                            |
+| -------------------------- | ------ | ---------------------------: | ----------------------------------------------- |
+| `cloudmail_api_url`        | string |                         `""` | CloudMail API 地址                              |
+| `cloudmail_admin_email`    | string |                         `""` | CloudMail 管理员邮箱                            |
+| `cloudmail_admin_password` | string |                         `""` | CloudMail 管理员密码                            |
+| `mail_curl_api_base`       | string |                         `""` | Mail-Curl API 地址                              |
+| `mail_curl_key`            | string |                         `""` | Mail-Curl Key                                   |
+| `luckyous_api_base`        | string | `https://mails.luckyous.com` | Luckyous API 地址                               |
+| `luckyous_api_key`         | string |                         `""` | Luckyous API Key（X-API-Key）                   |
+| `luckyous_project_code`    | string |                         `""` | Luckyous 项目编码（必填）                       |
+| `luckyous_email_type`      | string |                   `ms_graph` | Luckyous 邮箱类型（如 `ms_graph`）              |
+| `luckyous_domain`          | string |                         `""` | Luckyous 指定域名（可选）                       |
+| `luckyous_variant_mode`    | string |                         `""` | Luckyous 变种模式（可选：`dot/plus/mixed/all`） |
+| `luckyous_specified_email` | string |                         `""` | Luckyous 指定邮箱（可选，优先于 domain）        |
 
 ### 6.6 Gmail / Graph
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `gmail_imap_user` | string | `""` | Gmail IMAP 账号 |
-| `gmail_imap_pass` | string | `""` | Gmail 应用专用密码 |
-| `gmail_alias_emails` | string | `""` | 别名邮箱池 |
-| `gmail_imap_server` | string | `imap.gmail.com` | IMAP 服务器 |
-| `gmail_imap_port` | int | `993` | IMAP 端口 |
-| `gmail_alias_tag_len` | int | `8` | 别名 tag 长度 |
-| `gmail_alias_mix_googlemail` | bool | `true` | 混用 gmail/googlemail 域名 |
-| `graph_accounts_file` | string | `""` | Graph 账号文件路径 |
-| `graph_tenant` | string | `common` | Graph tenant |
-| `graph_fetch_mode` | string | `graph_api` | `graph_api` / `imap_xoauth2` |
-| `graph_pre_refresh_before_run` | bool | `true` | 启动前预刷新 token |
+| 键名                           | 类型   |           默认值 | 说明                         |
+| ------------------------------ | ------ | ---------------: | ---------------------------- |
+| `gmail_imap_user`              | string |             `""` | Gmail IMAP 账号              |
+| `gmail_imap_pass`              | string |             `""` | Gmail 应用专用密码           |
+| `gmail_alias_emails`           | string |             `""` | 别名邮箱池                   |
+| `gmail_imap_server`            | string | `imap.gmail.com` | IMAP 服务器                  |
+| `gmail_imap_port`              | int    |            `993` | IMAP 端口                    |
+| `gmail_alias_tag_len`          | int    |              `8` | 别名 tag 长度                |
+| `gmail_alias_mix_googlemail`   | bool   |           `true` | 混用 gmail/googlemail 域名   |
+| `graph_accounts_file`          | string |             `""` | Graph 账号文件路径           |
+| `graph_tenant`                 | string |         `common` | Graph tenant                 |
+| `graph_fetch_mode`             | string |      `graph_api` | `graph_api` / `imap_xoauth2` |
+| `graph_pre_refresh_before_run` | bool   |           `true` | 启动前预刷新 token           |
 
 ### 6.7 HeroSMS
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `hero_sms_enabled` | bool | `false` | 开启 HeroSMS |
-| `hero_sms_api_key` | string | `""` | HeroSMS API Key |
-| `hero_sms_service` | string | `""` | 服务代码（可自动识别） |
-| `hero_sms_country` | string | `US` | 国家偏好 |
-| `hero_sms_max_price` | float | `2.0` | 余额下限（美元） |
-| `hero_sms_reuse_phone` | bool | `false` | 启用号码复用 |
-| `hero_sms_auto_pick_country` | bool | `false` | 自动选国家 |
+| 键名                         | 类型   |  默认值 | 说明                   |
+| ---------------------------- | ------ | ------: | ---------------------- |
+| `hero_sms_enabled`           | bool   | `false` | 开启 HeroSMS           |
+| `hero_sms_api_key`           | string |    `""` | HeroSMS API Key        |
+| `hero_sms_service`           | string |    `""` | 服务代码（可自动识别） |
+| `hero_sms_country`           | string |    `US` | 国家偏好               |
+| `hero_sms_max_price`         | float  |   `2.0` | 余额下限（美元）       |
+| `hero_sms_reuse_phone`       | bool   | `false` | 启用号码复用           |
+| `hero_sms_auto_pick_country` | bool   | `false` | 自动选国家             |
 
 ### 6.8 云端账号管理
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `remote_account_provider` | string | `sub2api` | 云端类型：`sub2api` / `cliproxyapi` |
-| `accounts_sync_api_url` | string | `""` | 同步 API 地址 |
-| `accounts_sync_bearer_token` | string | `""` | 同步 API Token |
-| `accounts_list_api_base` | string | `""` | 列表 API 基地址 |
-| `cliproxy_api_base` | string | `""` | CLIProxyAPI 管理地址 |
-| `cliproxy_management_key` | string | `""` | CLIProxyAPI 管理密钥 |
-| `accounts_list_page_size` | int | `10` | 列表每页数量 |
-| `accounts_list_fetch_workers` | int | `4` | 拉取并发 |
-| `accounts_list_ssl_retry` | int | `3` | SSL 重试次数 |
-| `accounts_list_ssl_retry_wait_sec` | float | `0.8` | SSL 重试间隔 |
-| `accounts_list_timezone` | string | `Asia/Shanghai` | 时区 |
-| `remote_test_concurrency` | int | `4` | 测活并发 |
-| `remote_test_ssl_retry` | int | `2` | 测活 SSL 重试 |
-| `remote_refresh_concurrency` | int | `4` | 刷新并发 |
-| `remote_revive_concurrency` | int | `4` | 复活并发（Sub2API） |
+| 键名                               | 类型   |          默认值 | 说明                                |
+| ---------------------------------- | ------ | --------------: | ----------------------------------- |
+| `remote_account_provider`          | string |       `sub2api` | 云端类型：`sub2api` / `cliproxyapi` |
+| `accounts_sync_api_url`            | string |            `""` | 同步 API 地址                       |
+| `accounts_sync_bearer_token`       | string |            `""` | 同步 API Token                      |
+| `accounts_list_api_base`           | string |            `""` | 列表 API 基地址                     |
+| `cliproxy_api_base`                | string |            `""` | CLIProxyAPI 管理地址                |
+| `cliproxy_management_key`          | string |            `""` | CLIProxyAPI 管理密钥                |
+| `accounts_list_page_size`          | int    |            `10` | 列表每页数量                        |
+| `accounts_list_fetch_workers`      | int    |             `4` | 拉取并发                            |
+| `accounts_list_ssl_retry`          | int    |             `3` | SSL 重试次数                        |
+| `accounts_list_ssl_retry_wait_sec` | float  |           `0.8` | SSL 重试间隔                        |
+| `accounts_list_timezone`           | string | `Asia/Shanghai` | 时区                                |
+| `remote_test_concurrency`          | int    |             `4` | 测活并发                            |
+| `remote_test_ssl_retry`            | int    |             `2` | 测活 SSL 重试                       |
+| `remote_refresh_concurrency`       | int    |             `4` | 刷新并发                            |
+| `remote_revive_concurrency`        | int    |             `4` | 复活并发（Sub2API）                 |
 
 ### 6.9 其他配置
 
-| 键名 | 类型 | 默认值 | 说明 |
-|---|---|---:|---|
-| `mail_delete_concurrency` | int | `4` | 邮件删除并发 |
-| `codex_export_dir` | string | `""` | CPA 导出目录 |
-| `mail_domain_error_counts` | object | `{}` | 域名失败计数（运行时维护） |
-| `mail_domain_registered_counts` | object | `{}` | 域名成功计数（运行时维护） |
-| `json_file_notes` | object | `{}` | JSON 文件备注 |
-| `local_cpa_test_state` | object | `{}` | 本地账号测活状态缓存 |
+| 键名                            | 类型   | 默认值 | 说明                       |
+| ------------------------------- | ------ | -----: | -------------------------- |
+| `mail_delete_concurrency`       | int    |    `4` | 邮件删除并发               |
+| `codex_export_dir`              | string |   `""` | CPA 导出目录               |
+| `mail_domain_error_counts`      | object |   `{}` | 域名失败计数（运行时维护） |
+| `mail_domain_registered_counts` | object |   `{}` | 域名成功计数（运行时维护） |
+| `json_file_notes`               | object |   `{}` | JSON 文件备注              |
+| `local_cpa_test_state`          | object |   `{}` | 本地账号测活状态缓存       |
 
 ## 7. Graph 账号文件格式
 
@@ -305,4 +312,4 @@ bob@outlook.com----pass456----yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy----0.AXEA...
 - 作者：`Msg-Lbo`（GitHub: `https://github.com/Msg-Lbo`）
 - 协议文件：`LICENSE`
 - 协议链接：`https://github.com/Msg-Lbo/codeX-register/blob/main/LICENSE`
-- 允许学习研究与非商业自用；禁止商业售卖和二开后收费变现。
+- 使用前请确认你的操作、目标站点与数据处理流程符合当地法律法规、服务条款与内部合规要求。
