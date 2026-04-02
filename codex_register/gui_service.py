@@ -2300,7 +2300,8 @@ class RegisterService:
 
             stats_fn = getattr(r_with_pwd, "get_hero_sms_runtime_stats", None)
             if callable(stats_fn):
-                stats: dict[str, Any] = stats_fn() or {}
+                stats_raw = stats_fn() if callable(stats_fn) else None
+                stats: dict[str, Any] = stats_raw if isinstance(stats_raw, dict) else {}
                 data["spent_usd"] = round(
                     max(0.0, float(stats.get("spent_total_usd") or 0.0)),
                     4,
@@ -2335,7 +2336,8 @@ class RegisterService:
                         pass
                 if callable(ctry_fn):
                     try:
-                        data["country_resolved"] = int(ctry_fn(proxy_map) or -1)
+                        _cid: Any = ctry_fn(proxy_map)
+                        data["country_resolved"] = int(_cid if _cid is not None else -1)
                     except Exception:
                         pass
         except Exception as e:

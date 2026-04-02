@@ -3212,29 +3212,6 @@ def _generate_password(length: int = 16) -> str:
     return "".join(chars)
 
 
-def run(proxy: Optional[str]):
-    """
-    单次完整注册。返回值：
-    - 成功: (OAuth 账号字典, 明文密码)
-    - 失败: (None, \"\") 或 (None, password)（已生成密码但后续失败时便于落盘）
-    - 注册表单 403: (\"retry_403\", \"\") 由调用方冷却重试
-    """
-    proxies: Any = None
-    if proxy:
-        proxies = {"http": proxy, "https": proxy}
-    _raise_if_stopped()
-
-    fp = _choose_browser_fingerprint()
-    _browser: Any = str(fp.get("impersonate") or "safari")
-    s = requests.Session(proxies=proxies, impersonate=_browser)
-    _apply_session_fingerprint(s, fp)
-    _info(
-        "浏览器指纹: "
-        f"{fp.get('label', '-')}"
-        f" · imp={fp.get('impersonate', '-')}"
-        f" · lang={fp.get('accept_language', '-')}"
-    )
-
 def _run_runtime_meta() -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     try:
@@ -3364,7 +3341,7 @@ def _run_phase_init(proxy: Optional[str]) -> tuple[Any, Any, Any, str, str, str,
     return s, fp, proxies, email, dev_token, email_domain, oauth, url, None
 
 
-def _run_phase_signup(s: Any, url: str, email: str, proxies: Any) -> tuple[str, str, bool, str, str, Optional[Any]]:
+def _run_phase_signup(s: Any, url: str, email: str, dev_token: str, proxies: Any) -> tuple[str, str, bool, str, str, Optional[Any]]:
     signup_body = f'{{"username":{{"value":"{email}","kind":"email"}},"screen_hint":"signup"}}'
 
     signup_resp: Any = None
@@ -3816,7 +3793,7 @@ def run(proxy: Optional[str]):
             return err
 
         password, sentinel, need_otp, register_continue, register_page, err = _run_phase_signup(
-            s, url, email, proxies
+            s, url, email, dev_token, proxies
         )
         if err is not None:
             return err
