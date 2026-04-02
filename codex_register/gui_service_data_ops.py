@@ -684,8 +684,10 @@ def _extract_email_like_text(raw: Any) -> str:
 
 
 def _account_to_codex_record(acc: dict[str, Any]) -> dict[str, str]:
-    creds: dict = acc.get("credentials") if isinstance(acc.get("credentials"), dict) else {}
-    extra: dict = acc.get("extra") if isinstance(acc.get("extra"), dict) else {}
+    _creds = acc.get("credentials")
+    creds: dict[str, Any] = _creds if isinstance(_creds, dict) else {}
+    _extra = acc.get("extra")
+    extra: dict[str, Any] = _extra if isinstance(_extra, dict) else {}
 
     email = str(
         acc.get("name")
