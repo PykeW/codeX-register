@@ -684,8 +684,8 @@ def _extract_email_like_text(raw: Any) -> str:
 
 
 def _account_to_codex_record(acc: dict[str, Any]) -> dict[str, str]:
-    creds = acc.get("credentials") if isinstance(acc.get("credentials"), dict) else {}
-    extra = acc.get("extra") if isinstance(acc.get("extra"), dict) else {}
+    creds: dict = acc.get("credentials") if isinstance(acc.get("credentials"), dict) else {}
+    extra: dict = acc.get("extra") if isinstance(acc.get("extra"), dict) else {}
 
     email = str(
         acc.get("name")
@@ -1257,17 +1257,17 @@ def delete_local_accounts(service, emails: list[Any]) -> dict[str, Any]:
             arr = data.get("accounts", []) if isinstance(data, dict) else []
             if not isinstance(arr, list):
                 continue
-            kept: list[Any] = []
+            kept_accounts: list[Any] = []
             removed_this = 0
             for acc in arr:
                 em = email_from_account_entry(acc if isinstance(acc, dict) else {})
                 if em and em in deleted_emails:
                     removed_this += 1
                     continue
-                kept.append(acc)
+                kept_accounts.append(acc)
             if removed_this <= 0:
                 continue
-            data["accounts"] = kept
+            data["accounts"] = kept_accounts
             data["exported_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             with open(fp, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
